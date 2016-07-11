@@ -12,6 +12,19 @@ config SECURITY_SMACK
 	  of other mandatory security schemes.
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_SMACK_STACKED
+	bool "Smack support is enabled by default"
+	depends on SECURITY_SMACK && SECURITY_STACKING
+	default n
+	help
+	  This option instructs the system to use the Smack checks.
+	  If not selected the module will not be invoked.
+	  Stacked security modules may interact in unexpected ways.
+	  Please be sure your user space code is accomodating of
+	  multiple security modules.
+
+	  If you are unsure how to answer this question, answer N.
+
 config SECURITY_SMACK_BRINGUP
 	bool "Reporting on access granted by Smack rules"
 	depends on SECURITY_SMACK

@@ -8,6 +8,19 @@ config SECURITY_SELINUX
 	  You will also need a policy configuration and a labeled filesystem.
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_SELINUX_STACKED
+	bool "NSA SELinux Support is enabled by default"
+	depends on SECURITY_SELINUX && SECURITY_STACKING
+	default n
+	help
+	  This option instructs the system to use the SELinux checks.
+	  If not selected the module will not be invoked.
+	  Stacked security modules may interact in unexpected ways.
+	  Please be sure your user space code is accomodating of
+	  multiple security modules.
+
+	  If you are unsure how to answer this question, answer N.
+
 config SECURITY_SELINUX_BOOTPARAM
 	bool "NSA SELinux boot parameter"
 	depends on SECURITY_SELINUX

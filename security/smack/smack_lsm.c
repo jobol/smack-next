@@ -4720,6 +4720,12 @@ static __init void init_smack_known_list(void)
 	smk_insert_entry(&smack_known_web);
 }
 
+#ifdef CONFIG_SECURITY_SMACK_STACKED
+#define STACKED 1
+#else
+#define STACKED 0
+#endif
+
 /**
  * smack_init - initialize the smack system
  *
@@ -4731,7 +4737,7 @@ static __init int smack_init(void)
 	struct cred *cred = (struct cred *) current->cred;
 	struct task_smack *tsp;
 
-	if (!security_module_enable("smack"))
+	if (!security_module_enable("smack", STACKED))
 		return 0;
 
 	if (!finish) {

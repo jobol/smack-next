@@ -14,6 +14,19 @@ config SECURITY_TOMOYO
 	  found at <http://tomoyo.sourceforge.jp/>.
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_TOMOYO_STACKED
+	bool "TOMOYO support is enabled by default"
+	depends on SECURITY_TOMOYO && SECURITY_STACKING
+	default n
+	help
+	  This option instructs the system to use the TOMOYO checks.
+	  If not selected the module will not be invoked.
+	  Stacked security modules may interact in unexpected ways.
+	  Please be sure your user space code is accomodating of
+	  multiple security modules.
+
+	  If you are unsure how to answer this question, answer N.
+
 config SECURITY_TOMOYO_MAX_ACCEPT_ENTRY
 	int "Default maximal count for learning mode"
 	default 2048
