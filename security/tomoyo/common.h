@@ -1202,7 +1202,7 @@ static inline void tomoyo_put_group(struct tomoyo_group *group)
  *
  * Returns pointer to the tomoyo cred blob.
  */
-static inline struct tomoyo_domain_info *tomoyo_cred(const struct cred *cred)
+static inline struct tomoyo_domain_info **tomoyo_cred(const struct cred *cred)
 {
 	return cred->security;
 }
@@ -1214,7 +1214,9 @@ static inline struct tomoyo_domain_info *tomoyo_cred(const struct cred *cred)
  */
 static inline struct tomoyo_domain_info *tomoyo_domain(void)
 {
-	return tomoyo_cred(current_cred());
+	struct tomoyo_domain_info **blob = tomoyo_cred(current_cred());
+
+	return *blob;
 }
 
 /**
@@ -1227,7 +1229,9 @@ static inline struct tomoyo_domain_info *tomoyo_domain(void)
 static inline struct tomoyo_domain_info *tomoyo_real_domain(struct task_struct
 							    *task)
 {
-	return tomoyo_cred(get_task_cred(task));
+	struct tomoyo_domain_info **blob = tomoyo_cred(get_task_cred(task));
+
+	return *blob;
 }
 
 /**
