@@ -1876,6 +1876,7 @@ struct security_hook_list {
 	struct list_head		list;
 	struct list_head		*head;
 	union security_list_options	hook;
+	char				*lsm;
 };
 
 /*
@@ -1888,15 +1889,10 @@ struct security_hook_list {
 	{ .head = &security_hook_heads.HEAD, .hook = { .HEAD = HOOK } }
 
 extern struct security_hook_heads security_hook_heads;
+extern char *lsm_names;
 
-static inline void security_add_hooks(struct security_hook_list *hooks,
-				      int count)
-{
-	int i;
-
-	for (i = 0; i < count; i++)
-		list_add_tail_rcu(&hooks[i].list, hooks[i].head);
-}
+extern void security_add_hooks(struct security_hook_list *hooks, int count,
+				char *lsm);
 
 #ifdef CONFIG_SECURITY_SELINUX_DISABLE
 /*
