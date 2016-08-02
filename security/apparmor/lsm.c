@@ -44,26 +44,11 @@ int apparmor_initialized __initdata;
  */
 
 /*
- * free the associated aa_task_cxt and put its profiles
+ * put the associated aa_task_cxt profiles
  */
 static void apparmor_cred_free(struct cred *cred)
 {
 	aa_free_task_context(cred_cxt(cred));
-	cred->security = NULL;
-}
-
-/*
- * allocate the apparmor part of blank credentials
- */
-static int apparmor_cred_alloc_blank(struct cred *cred, gfp_t gfp)
-{
-	/* freed by apparmor_cred_free */
-	struct aa_task_cxt *cxt = aa_alloc_task_context(gfp);
-	if (!cxt)
-		return -ENOMEM;
-
-	cred->security = cxt;
-	return 0;
 }
 
 /*
@@ -72,14 +57,7 @@ static int apparmor_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 static int apparmor_cred_prepare(struct cred *new, const struct cred *old,
 				 gfp_t gfp)
 {
-	struct aa_task_cxt *cxt;
-	/* freed by apparmor_cred_free */
-	cxt = aa_alloc_task_context(gfp);
-	if (!cxt)
-		return -ENOMEM;
-
-	aa_dup_task_context(cxt, cred_cxt(old));
-	new->security = cxt;
+	aa_dup_task_context(cred_cxt(new), cred_cxt(old));
 	return 0;
 }
 
@@ -612,6 +590,10 @@ static int apparmor_task_setrlimit(struct task_struct *task,
 	return error;
 }
 
+struct lsm_blob_sizes apparmor_blob_sizes = {
+	.lbs_cred = sizeof(struct aa_task_cxt),
+};
+
 static struct security_hook_list apparmor_hooks[] = {
 	LSM_HOOK_INIT(ptrace_access_check, apparmor_ptrace_access_check),
 	LSM_HOOK_INIT(ptrace_traceme, apparmor_ptrace_traceme),
@@ -641,7 +623,6 @@ static struct security_hook_list apparmor_hooks[] = {
 	LSM_HOOK_INIT(getprocattr, apparmor_getprocattr),
 	LSM_HOOK_INIT(setprocattr, apparmor_setprocattr),
 
-	LSM_HOOK_INIT(cred_alloc_blank, apparmor_cred_alloc_blank),
 	LSM_HOOK_INIT(cred_free, apparmor_cred_free),
 	LSM_HOOK_INIT(cred_prepare, apparmor_cred_prepare),
 	LSM_HOOK_INIT(cred_transfer, apparmor_cred_transfer),
@@ -882,19 +863,25 @@ static int __init set_init_cxt(void)
 	struct cred *cred = (struct cred *)current->real_cred;
 	struct aa_task_cxt *cxt;
 
-	cxt = aa_alloc_task_context(GFP_KERNEL);
-	if (!cxt)
-		return -ENOMEM;
+	lsm_early_cred(cred);
+	cxt = apparmor_cred(cred);
 
 	cxt->profile = aa_get_profile(root_ns->unconfined);
-	cred->security = cxt;
 
 	return 0;
 }
 
 static int __init apparmor_init(void)
 {
+	static int finish;
 	int error;
+
+	if (!finish) {
+		if (apparmor_enabled && security_module_enable("apparmor"))
+			security_add_blobs(&apparmor_blob_sizes);
+		finish = 1;
+		return 0;
+	}
 
 	if (!apparmor_enabled || !security_module_enable("apparmor")) {
 		aa_info_message(

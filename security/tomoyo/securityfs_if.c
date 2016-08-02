@@ -70,9 +70,12 @@ static ssize_t tomoyo_write_self(struct file *file, const char __user *buf,
 				if (!cred) {
 					error = -ENOMEM;
 				} else {
+					struct tomoyo_domain_info **blob;
 					struct tomoyo_domain_info *old_domain;
-					old_domain = tomoyo_cred(cred);
-					cred->security = new_domain;
+
+					blob = tomoyo_cred(cred);
+					old_domain = *blob;
+					*blob = new_domain;
 					atomic_inc(&new_domain->users);
 					atomic_dec(&old_domain->users);
 					commit_creds(cred);
@@ -236,7 +239,7 @@ static int __init tomoyo_initerface_init(void)
 	struct tomoyo_domain_info *domain;
 	struct dentry *tomoyo_dir;
 
-	domain = tomoyo_cred(current_cred());
+	domain = tomoyo_domain();
 	/* Don't create securityfs entries unless registered. */
 	if (domain != &tomoyo_kernel_domain)
 		return 0;
