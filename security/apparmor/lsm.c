@@ -49,7 +49,7 @@ int apparmor_initialized __initdata;
 static void apparmor_cred_free(struct cred *cred)
 {
 	aa_free_task_context(cred_cxt(cred));
-	cred_cxt(cred) = NULL;
+	cred->security = NULL;
 }
 
 /*
@@ -62,7 +62,7 @@ static int apparmor_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 	if (!cxt)
 		return -ENOMEM;
 
-	cred_cxt(cred) = cxt;
+	cred->security = cxt;
 	return 0;
 }
 
@@ -72,13 +72,14 @@ static int apparmor_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 static int apparmor_cred_prepare(struct cred *new, const struct cred *old,
 				 gfp_t gfp)
 {
+	struct aa_task_cxt *cxt;
 	/* freed by apparmor_cred_free */
-	struct aa_task_cxt *cxt = aa_alloc_task_context(gfp);
+	cxt = aa_alloc_task_context(gfp);
 	if (!cxt)
 		return -ENOMEM;
 
 	aa_dup_task_context(cxt, cred_cxt(old));
-	cred_cxt(new) = cxt;
+	new->security = cxt;
 	return 0;
 }
 
@@ -886,7 +887,7 @@ static int __init set_init_cxt(void)
 		return -ENOMEM;
 
 	cxt->profile = aa_get_profile(root_ns->unconfined);
-	cred_cxt(cred) = cxt;
+	cred->security = cxt;
 
 	return 0;
 }
@@ -896,10 +897,12 @@ static int __init apparmor_init(void)
 	int error;
 
 	if (!apparmor_enabled || !security_module_enable("apparmor")) {
-		aa_info_message("AppArmor disabled by boot time parameter");
+		aa_info_message(
+			"AppArmor disabled by boot time parameter");
 		apparmor_enabled = 0;
 		return 0;
 	}
+
 
 	error = aa_alloc_root_ns();
 	if (error) {
