@@ -89,8 +89,6 @@ int ss_initialized;
 static u32 latest_granting;
 
 /* Forward declaration. */
-static int context_struct_to_string(struct context *context, char **scontext,
-				    u32 *scontext_len);
 
 static void context_struct_compute_av(struct context *scontext,
 					struct context *tcontext,
@@ -1176,7 +1174,8 @@ allow:
  * to point to this string and set `*scontext_len' to
  * the length of the string.
  */
-static int context_struct_to_string(struct context *context, char **scontext, u32 *scontext_len)
+int context_struct_to_string(struct context *context, char **scontext,
+				u32 *scontext_len)
 {
 	char *scontextp;
 
@@ -1236,6 +1235,7 @@ const char *security_get_initial_sid_context(u32 sid)
 static int security_sid_to_context_core(u32 sid, char **scontext,
 					u32 *scontext_len, int force)
 {
+	struct sidtab_node *snode;
 	struct context *context;
 	int rc = 0;
 
@@ -1245,18 +1245,11 @@ static int security_sid_to_context_core(u32 sid, char **scontext,
 
 	if (!ss_initialized) {
 		if (sid <= SECINITSID_NUM) {
-			char *scontextp;
 
 			*scontext_len = strlen(initial_sid_to_string[sid]) + 1;
 			if (!scontext)
 				goto out;
-			scontextp = kmemdup(initial_sid_to_string[sid],
-					    *scontext_len, GFP_ATOMIC);
-			if (!scontextp) {
-				rc = -ENOMEM;
-				goto out;
-			}
-			*scontext = scontextp;
+			*scontext = (char *)initial_sid_to_string[sid];
 			goto out;
 		}
 		printk(KERN_ERR "SELinux: %s:  called before initial "
@@ -1265,6 +1258,19 @@ static int security_sid_to_context_core(u32 sid, char **scontext,
 		goto out;
 	}
 	read_lock(&policy_rwlock);
+	snode = sidtab_find(&sidtab, sid, force);
+	if (!snode) {
+		printk(KERN_ERR "SELinux: %s:  unrecognized SID tab %d\n",
+			__func__, sid);
+	} else if (snode->context.secctx == NULL ||
+		   snode->context.seclen == 0) {
+		printk(KERN_ERR "SELinux: %s:  unrecognized SID secctx %d\n",
+			__func__, sid);
+	} else {
+		*scontext = snode->context.secctx;
+		*scontext_len = snode->context.seclen;
+		goto out_unlock;
+	}
 	if (force)
 		context = sidtab_search_force(&sidtab, sid);
 	else

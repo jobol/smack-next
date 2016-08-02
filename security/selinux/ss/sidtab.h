@@ -35,6 +35,7 @@ int sidtab_init(struct sidtab *s);
 int sidtab_insert(struct sidtab *s, u32 sid, struct context *context);
 struct context *sidtab_search(struct sidtab *s, u32 sid);
 struct context *sidtab_search_force(struct sidtab *s, u32 sid);
+struct sidtab_node *sidtab_find(struct sidtab *s, u32 sid, int force);
 
 int sidtab_map(struct sidtab *s,
 	       int (*apply) (u32 sid,

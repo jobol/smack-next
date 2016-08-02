@@ -9,6 +9,7 @@
 #include <linux/errno.h>
 #include "flask.h"
 #include "security.h"
+#include "services.h"
 #include "sidtab.h"
 
 #define SIDTAB_HASH(sid) \
@@ -64,6 +65,13 @@ int sidtab_insert(struct sidtab *s, u32 sid, struct context *context)
 		rc = -ENOMEM;
 		goto out;
 	}
+	if (context_struct_to_string(context, &newnode->context.secctx,
+					&newnode->context.seclen) < 0) {
+		context_destroy(&newnode->context);
+		kfree(newnode);
+		rc = -ENOMEM;
+		goto out;
+	}
 
 	if (prev) {
 		newnode->next = prev->next;
@@ -80,6 +88,36 @@ int sidtab_insert(struct sidtab *s, u32 sid, struct context *context)
 		s->next_sid = sid + 1;
 out:
 	return rc;
+}
+
+struct sidtab_node *sidtab_find(struct sidtab *s, u32 sid, int force)
+{
+	int hvalue;
+	struct sidtab_node *cur;
+
+	if (!s)
+		return NULL;
+
+	hvalue = SIDTAB_HASH(sid);
+	cur = s->htable[hvalue];
+	while (cur && sid > cur->sid)
+		cur = cur->next;
+
+	if (force && cur && sid == cur->sid && cur->context.len)
+		return cur;
+
+	if (cur == NULL || sid != cur->sid || cur->context.len) {
+		/* Remap invalid SIDs to the unlabeled SID. */
+		sid = SECINITSID_UNLABELED;
+		hvalue = SIDTAB_HASH(sid);
+		cur = s->htable[hvalue];
+		while (cur && sid > cur->sid)
+			cur = cur->next;
+		if (!cur || sid != cur->sid)
+			return NULL;
+	}
+
+	return cur;
 }
 
 static struct context *sidtab_search_core(struct sidtab *s, u32 sid, int force)

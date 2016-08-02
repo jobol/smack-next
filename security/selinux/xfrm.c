@@ -357,10 +357,8 @@ int selinux_xfrm_state_alloc_acquire(struct xfrm_state *x,
 		return rc;
 
 	ctx = kmalloc(sizeof(*ctx) + str_len, GFP_ATOMIC);
-	if (!ctx) {
-		rc = -ENOMEM;
-		goto out;
-	}
+	if (!ctx)
+		return -ENOMEM;
 
 	ctx->ctx_doi = XFRM_SC_DOI_LSM;
 	ctx->ctx_alg = XFRM_SC_ALG_SELINUX;
@@ -370,8 +368,6 @@ int selinux_xfrm_state_alloc_acquire(struct xfrm_state *x,
 
 	x->security = ctx;
 	atomic_inc(&selinux_xfrm_refcount);
-out:
-	kfree(ctx_str);
 	return rc;
 }
 

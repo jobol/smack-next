@@ -152,18 +152,14 @@ static void avc_dump_query(struct audit_buffer *ab, u32 ssid, u32 tsid, u16 tcla
 	rc = security_sid_to_context(ssid, &scontext, &scontext_len);
 	if (rc)
 		audit_log_format(ab, "ssid=%d", ssid);
-	else {
+	else
 		audit_log_format(ab, "scontext=%s", scontext);
-		kfree(scontext);
-	}
 
 	rc = security_sid_to_context(tsid, &scontext, &scontext_len);
 	if (rc)
 		audit_log_format(ab, " tsid=%d", tsid);
-	else {
+	else
 		audit_log_format(ab, " tcontext=%s", scontext);
-		kfree(scontext);
-	}
 
 	BUG_ON(!tclass || tclass >= ARRAY_SIZE(secclass_map));
 	audit_log_format(ab, " tclass=%s", secclass_map[tclass-1].name);

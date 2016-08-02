@@ -2872,7 +2872,9 @@ static int selinux_inode_init_security(struct inode *inode, struct inode *dir,
 		rc = security_sid_to_context_force(newsid, &context, &clen);
 		if (rc)
 			return rc;
-		*value = context;
+		*value = kstrdup(context, GFP_KERNEL);
+		if (*value == NULL)
+			return -ENOMEM;
 		*len = clen;
 	}
 
@@ -3231,12 +3233,13 @@ static int selinux_inode_getsecurity(struct inode *inode, const char *name, void
 	if (error)
 		return error;
 	error = size;
-	if (alloc) {
+
+	/*
+	 * context will not be freed because selinux_release_context
+	 * does not free anything.
+	 */
+	if (alloc)
 		*buffer = context;
-		goto out_nofree;
-	}
-	kfree(context);
-out_nofree:
 	return error;
 }
 
@@ -4621,7 +4624,6 @@ static int selinux_socket_getpeersec_stream(struct socket *sock, char __user *op
 out_len:
 	if (put_user(scontext_len, optlen))
 		err = -EFAULT;
-	kfree(scontext);
 	return err;
 }
 
@@ -5674,6 +5676,7 @@ static int selinux_getprocattr(struct task_struct *p,
 	u32 sid;
 	int error;
 	unsigned len;
+	char *vp;
 
 	if (current != p) {
 		error = current_has_perm(p, PROCESS__GETATTR);
@@ -5705,21 +5708,17 @@ static int selinux_getprocattr(struct task_struct *p,
 	if (!sid)
 		return 0;
 
-	if (strcmp(name, "context")) {
-		error = security_sid_to_context(sid, value, &len);
-	} else {
-		char *vp;
-
-		error = security_sid_to_context(sid, &vp, &len);
-		if (!error) {
-			*value = kasprintf(GFP_KERNEL, "selinux='%s'", vp);
-			if (*value == NULL)
-				error = -ENOMEM;
-		}
-	}
-
+	error = security_sid_to_context(sid, &vp, &len);
 	if (error)
 		return error;
+
+	if (strcmp(name, "context"))
+		*value = kstrdup(vp, GFP_KERNEL);
+	else
+		*value = kasprintf(GFP_KERNEL, "selinux='%s'", vp);
+
+	if (*value == NULL)
+		return -ENOMEM;
 	return len;
 
 invalid:
@@ -5876,11 +5875,6 @@ static int selinux_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
 	return security_context_to_sid(secdata, seclen, secid, GFP_KERNEL);
 }
 
-static void selinux_release_secctx(char *secdata, u32 seclen)
-{
-	kfree(secdata);
-}
-
 static void selinux_inode_invalidate_secctx(struct inode *inode)
 {
 	struct inode_security_struct *isec = inode->i_security;
@@ -5978,7 +5972,9 @@ static int selinux_key_getsecurity(struct key *key, char **_buffer)
 	rc = security_sid_to_context(ksec->sid, &context, &len);
 	if (!rc)
 		rc = len;
-	*_buffer = context;
+	*_buffer = kstrdup(context, GFP_KERNEL);
+	if (*_buffer == NULL)
+		rc = -ENOMEM;
 	return rc;
 }
 
@@ -6123,7 +6119,6 @@ static struct security_hook_list selinux_hooks[] = {
 	LSM_HOOK_INIT(ismaclabel, selinux_ismaclabel),
 	LSM_HOOK_INIT(secid_to_secctx, selinux_secid_to_secctx),
 	LSM_HOOK_INIT(secctx_to_secid, selinux_secctx_to_secid),
-	LSM_HOOK_INIT(release_secctx, selinux_release_secctx),
 	LSM_HOOK_INIT(inode_invalidate_secctx, selinux_inode_invalidate_secctx),
 	LSM_HOOK_INIT(inode_notifysecctx, selinux_inode_notifysecctx),
 	LSM_HOOK_INIT(inode_setsecctx, selinux_inode_setsecctx),
