@@ -363,7 +363,6 @@ int security_netlink_send(struct sock *sk, struct sk_buff *skb);
 int security_ismaclabel(const char *name);
 int security_secid_to_secctx(u32 secid, char **secdata, u32 *seclen);
 int security_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid);
-void security_release_secctx(char *secdata, u32 seclen);
 
 void security_inode_invalidate_secctx(struct inode *inode);
 int security_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen);
@@ -1113,10 +1112,6 @@ static inline int security_secctx_to_secid(const char *secdata,
 					   u32 *secid)
 {
 	return -EOPNOTSUPP;
-}
-
-static inline void security_release_secctx(char *secdata, u32 seclen)
-{
 }
 
 static inline void security_inode_invalidate_secctx(struct inode *inode)

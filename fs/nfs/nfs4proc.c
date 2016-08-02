@@ -123,12 +123,6 @@ nfs4_label_init_security(struct inode *dir, struct dentry *dentry,
 
 	return NULL;
 }
-static inline void
-nfs4_label_release_security(struct nfs4_label *label)
-{
-	if (label)
-		security_release_secctx(label->label, label->len);
-}
 static inline u32 *nfs4_bitmask(struct nfs_server *server, struct nfs4_label *label)
 {
 	if (label)
@@ -141,9 +135,6 @@ static inline struct nfs4_label *
 nfs4_label_init_security(struct inode *dir, struct dentry *dentry,
 	struct iattr *sattr, struct nfs4_label *l)
 { return NULL; }
-static inline void
-nfs4_label_release_security(struct nfs4_label *label)
-{ return; }
 static inline u32 *
 nfs4_bitmask(struct nfs_server *server, struct nfs4_label *label)
 { return server->attr_bitmask; }
@@ -3037,8 +3028,6 @@ nfs4_atomic_open(struct inode *dir, struct nfs_open_context *ctx,
 	/* Protect against concurrent sillydeletes */
 	state = nfs4_do_open(dir, ctx, open_flags, attr, label, opened);
 
-	nfs4_label_release_security(label);
-
 	if (IS_ERR(state))
 		return ERR_CAST(state);
 	return state->inode;
@@ -3750,7 +3739,6 @@ nfs4_proc_create(struct inode *dir, struct dentry *dentry, struct iattr *sattr,
 		goto out;
 	}
 out:
-	nfs4_label_release_security(ilabel);
 	put_nfs_open_context(ctx);
 	return status;
 }
@@ -4023,7 +4011,6 @@ static int nfs4_proc_symlink(struct inode *dir, struct dentry *dentry,
 				&exception);
 	} while (exception.retry);
 
-	nfs4_label_release_security(label);
 	return err;
 }
 
@@ -4061,7 +4048,6 @@ static int nfs4_proc_mkdir(struct inode *dir, struct dentry *dentry,
 		err = nfs4_handle_exception(NFS_SERVER(dir), err,
 				&exception);
 	} while (exception.retry);
-	nfs4_label_release_security(label);
 
 	return err;
 }
@@ -4170,8 +4156,6 @@ static int nfs4_proc_mknod(struct inode *dir, struct dentry *dentry,
 		err = nfs4_handle_exception(NFS_SERVER(dir), err,
 				&exception);
 	} while (exception.retry);
-
-	nfs4_label_release_security(label);
 
 	return err;
 }

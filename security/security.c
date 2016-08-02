@@ -1485,12 +1485,6 @@ int security_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
 }
 EXPORT_SYMBOL(security_secctx_to_secid);
 
-void security_release_secctx(char *secdata, u32 seclen)
-{
-	call_void_hook(release_secctx, secdata, seclen);
-}
-EXPORT_SYMBOL(security_release_secctx);
-
 void security_inode_invalidate_secctx(struct inode *inode)
 {
 	call_void_hook(inode_invalidate_secctx, inode);

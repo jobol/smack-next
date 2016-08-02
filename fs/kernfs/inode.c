@@ -189,8 +189,6 @@ int kernfs_iop_setxattr(struct dentry *unused, struct inode *inode,
 		error = kernfs_node_setsecdata(kn, &secdata, &secdata_len);
 		mutex_unlock(&kernfs_mutex);
 
-		if (secdata)
-			security_release_secctx(secdata, secdata_len);
 		return error;
 	} else if (!strncmp(name, XATTR_TRUSTED_PREFIX, XATTR_TRUSTED_PREFIX_LEN)) {
 		return simple_xattr_set(&attrs->xattrs, name, value, size,

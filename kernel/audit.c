@@ -1029,17 +1029,12 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 				return err;
 		}
 		sig_data = kmalloc(sizeof(*sig_data) + len, GFP_KERNEL);
-		if (!sig_data) {
-			if (audit_sig_sid)
-				security_release_secctx(ctx, len);
+		if (!sig_data)
 			return -ENOMEM;
-		}
 		sig_data->uid = from_kuid(&init_user_ns, audit_sig_uid);
 		sig_data->pid = audit_sig_pid;
-		if (audit_sig_sid) {
+		if (audit_sig_sid)
 			memcpy(sig_data->ctx, ctx, len);
-			security_release_secctx(ctx, len);
-		}
 		audit_send_reply(skb, seq, AUDIT_SIGNAL_INFO, 0, 0,
 				 sig_data, sizeof(*sig_data) + len);
 		kfree(sig_data);
@@ -1808,7 +1803,6 @@ void audit_log_name(struct audit_context *context, struct audit_names *n,
 				*call_panic = 2;
 		} else {
 			audit_log_format(ab, " obj=%s", ctx);
-			security_release_secctx(ctx, len);
 		}
 	}
 
@@ -1855,7 +1849,6 @@ int audit_log_task_context(struct audit_buffer *ab)
 	}
 
 	audit_log_format(ab, " subj=%s", ctx);
-	security_release_secctx(ctx, len);
 	return 0;
 
 error_path:
@@ -2055,12 +2048,10 @@ void audit_log_secctx(struct audit_buffer *ab, u32 secid)
 	u32 len;
 	char *secctx;
 
-	if (security_secid_to_secctx(secid, &secctx, &len)) {
+	if (security_secid_to_secctx(secid, &secctx, &len))
 		audit_panic("Cannot convert secid to context");
-	} else {
+	else
 		audit_log_format(ab, " obj=%s", secctx);
-		security_release_secctx(secctx, len);
-	}
 }
 EXPORT_SYMBOL(audit_log_secctx);
 #endif

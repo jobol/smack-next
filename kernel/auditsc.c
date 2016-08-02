@@ -983,7 +983,6 @@ static int audit_log_pid_context(struct audit_context *context, pid_t pid,
 			rc = 1;
 		} else {
 			audit_log_format(ab, " obj=%s", ctx);
-			security_release_secctx(ctx, len);
 		}
 	}
 	audit_log_format(ab, " ocomm=");
@@ -1199,7 +1198,6 @@ static void show_special(struct audit_context *context, int *call_panic)
 				*call_panic = 1;
 			} else {
 				audit_log_format(ab, " obj=%s", ctx);
-				security_release_secctx(ctx, len);
 			}
 		}
 		if (context->ipc.has_perm) {
