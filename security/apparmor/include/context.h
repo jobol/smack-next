@@ -24,6 +24,7 @@
 
 #define cred_cxt(X) apparmor_cred(X)
 #define current_cxt() cred_cxt(current_cred())
+#define file_cxt(X) apparmor_file(X)
 
 /* struct aa_file_cxt - the AppArmor context the file was opened in
  * @perms: the permission the file was opened with
@@ -89,6 +90,11 @@ struct aa_profile *aa_get_task_profile(struct task_struct *task);
 static inline struct aa_task_cxt *apparmor_cred(const struct cred *cred)
 {
 	return cred->security;
+}
+
+static inline struct aa_file_cxt *apparmor_file(const struct file *file)
+{
+	return file->f_security;
 }
 
 /**

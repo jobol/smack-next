@@ -321,7 +321,7 @@ static int apparmor_inode_getattr(const struct path *path)
 
 static int apparmor_file_open(struct file *file, const struct cred *cred)
 {
-	struct aa_file_cxt *fcxt = file->f_security;
+	struct aa_file_cxt *fcxt = file_cxt(file);
 	struct aa_profile *profile;
 	int error = 0;
 
@@ -364,14 +364,14 @@ static int apparmor_file_alloc_security(struct file *file)
 
 static void apparmor_file_free_security(struct file *file)
 {
-	struct aa_file_cxt *cxt = file->f_security;
+	struct aa_file_cxt *cxt = file_cxt(file);
 
 	aa_free_file_context(cxt);
 }
 
 static int common_file_perm(int op, struct file *file, u32 mask)
 {
-	struct aa_file_cxt *fcxt = file->f_security;
+	struct aa_file_cxt *fcxt = file_cxt(file);
 	struct aa_profile *profile, *fprofile = aa_cred_profile(file->f_cred);
 	int error = 0;
 
@@ -417,7 +417,7 @@ static int common_mmap(int op, struct file *file, unsigned long prot,
 {
 	int mask = 0;
 
-	if (!file || !file->f_security)
+	if (!file || file_cxt(file) == NULL)
 		return 0;
 
 	if (prot & PROT_READ)
