@@ -14,6 +14,19 @@ config SECURITY_APPARMOR
 
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_APPARMOR_STACKED
+	bool "AppArmor support is enabled by default"
+	depends on SECURITY_APPARMOR && SECURITY_STACKING
+	default n
+	help
+	  This option instructs the system to use the AppArmor checks.
+	  If not selected the module will not be invoked.
+	  Stacked security modules may interact in unexpected ways.
+	  Please be sure your user space code is accomodating of
+	  multiple security modules.
+
+	  If you are unsure how to answer this question, answer N.
+
 config SECURITY_APPARMOR_BOOTPARAM_VALUE
 	int "AppArmor boot parameter default value"
 	depends on SECURITY_APPARMOR

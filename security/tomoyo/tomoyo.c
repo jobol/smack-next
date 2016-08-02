@@ -550,6 +550,12 @@ static struct security_hook_list tomoyo_hooks[] = {
 /* Lock for GC. */
 DEFINE_SRCU(tomoyo_ss);
 
+#ifdef CONFIG_SECURITY_TOMOYO_STACKED
+#define STACKED 1
+#else
+#define STACKED 0
+#endif
+
 /**
  * tomoyo_init - Register TOMOYO Linux as a LSM module.
  *
@@ -561,7 +567,7 @@ static int __init tomoyo_init(void)
 	struct cred *cred = (struct cred *) current_cred();
 	struct tomoyo_domain_info **blob;
 
-	if (!security_module_enable("tomoyo"))
+	if (!security_module_enable("tomoyo", STACKED))
 		return 0;
 
 	if (!finish) {
