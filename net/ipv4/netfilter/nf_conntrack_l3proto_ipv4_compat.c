@@ -109,8 +109,6 @@ static void ct_show_secctx(struct seq_file *s, const struct nf_conn *ct)
 		return;
 
 	seq_printf(s, "secctx=%s ", secctx);
-
-	security_release_secctx(secctx, len);
 }
 #else
 static inline void ct_show_secctx(struct seq_file *s, const struct nf_conn *ct)

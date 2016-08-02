@@ -158,7 +158,7 @@ xattr_getsecurity(struct inode *inode, const char *name, void *value,
 
 	if (!value || !size) {
 		len = security_inode_getsecurity(inode, name, &buffer, false);
-		goto out_noalloc;
+		goto out;
 	}
 
 	len = security_inode_getsecurity(inode, name, &buffer, true);
@@ -170,8 +170,6 @@ xattr_getsecurity(struct inode *inode, const char *name, void *value,
 	}
 	memcpy(value, buffer, len);
 out:
-	security_release_secctx(buffer, len);
-out_noalloc:
 	return len;
 }
 EXPORT_SYMBOL_GPL(xattr_getsecurity);
