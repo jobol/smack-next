@@ -6199,11 +6199,17 @@ static struct security_hook_list selinux_hooks[] = {
 #endif
 };
 
+#ifdef CONFIG_SECURITY_SELINUX_STACKED
+#define STACKED 1
+#else
+#define STACKED 0
+#endif
+
 static __init int selinux_init(void)
 {
 	static int finish;
 
-	if (!security_module_enable("selinux")) {
+	if (!security_module_enable("selinux", STACKED)) {
 		selinux_enabled = 0;
 		return 0;
 	}

@@ -31,13 +31,18 @@
 
 /* Maximum number of letters for an LSM name string */
 #define SECURITY_NAME_MAX	10
+#define MODULE_STACK		"(stacking)"
 
 char *lsm_names;
 static struct lsm_blob_sizes blob_sizes;
 
 /* Boot-time LSM user choice */
 static __initdata char chosen_lsm[SECURITY_NAME_MAX + 1] =
+#ifdef CONFIG_SECURITY_STACKING
+	MODULE_STACK;
+#else
 	CONFIG_DEFAULT_SECURITY;
+#endif
 
 static void __init do_security_initcalls(void)
 {
@@ -113,6 +118,7 @@ static int lsm_append(char *new, char **result)
 /**
  * security_module_enable - Load given security module on boot ?
  * @module: the name of the module
+ * @stacked: indicates that the module wants to be stacked
  *
  * Each LSM must pass this method before registering its own operations
  * to avoid security registration races. This method may also be used
@@ -124,9 +130,27 @@ static int lsm_append(char *new, char **result)
  *	 choose an alternate LSM at boot time.
  * Otherwise, return false.
  */
-int __init security_module_enable(const char *module)
+int __init security_module_enable(const char *module, const int stacked)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	/*
+	 * Module defined on the command line security=XXXX
+	 */
+	if (strcmp(chosen_lsm, MODULE_STACK)) {
+		if (!strcmp(module, chosen_lsm)) {
+			pr_info("Command line sets the %s security module.\n",
+				module);
+			return 1;
+		}
+		return 0;
+	}
+	/*
+	 * Module configured as stacked.
+	 */
+	return stacked;
+#else
 	return !strcmp(module, chosen_lsm);
+#endif
 }
 
 /**

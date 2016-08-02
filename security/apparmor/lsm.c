@@ -853,19 +853,26 @@ static int __init set_init_cxt(void)
 	return 0;
 }
 
+#ifdef CONFIG_SECURITY_APPARMOR_STACKED
+#define STACKED 1
+#else
+#define STACKED 0
+#endif
+
 static int __init apparmor_init(void)
 {
 	static int finish;
 	int error;
 
 	if (!finish) {
-		if (apparmor_enabled && security_module_enable("apparmor"))
+		if (apparmor_enabled &&
+		    security_module_enable("apparmor", STACKED))
 			security_add_blobs(&apparmor_blob_sizes);
 		finish = 1;
 		return 0;
 	}
 
-	if (!apparmor_enabled || !security_module_enable("apparmor")) {
+	if (!apparmor_enabled || !security_module_enable("apparmor", STACKED)) {
 		aa_info_message(
 			"AppArmor disabled by boot time parameter");
 		apparmor_enabled = 0;
