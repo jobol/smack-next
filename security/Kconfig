@@ -31,6 +31,15 @@ config SECURITY
 
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_STACKING_DEBUG
+	bool "Enable debugging of the LSM infrastructure"
+	depends on SECURITY
+	help
+	  This allows you to choose debug messages related to
+	  security modules configured into your kernel.
+
+	  If you are unsure how to answer this question, answer N.
+
 config SECURITYFS
 	bool "Enable the securityfs filesystem"
 	help
