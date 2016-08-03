@@ -363,12 +363,43 @@ static inline struct smack_known **smack_file(const struct file *file)
 #endif
 }
 
+static inline struct inode_smack *smack_inode(const struct inode *inode)
+{
+	return inode->i_security;
+}
+
+static inline struct socket_smack *smack_sock(const struct sock *sock)
+{
+	return sock->sk_security;
+}
+
+static inline struct superblock_smack *smack_superblock(
+					const struct super_block *superblock)
+{
+	return superblock->s_security;
+}
+
+static inline struct smack_known *smack_msg_msg(const struct msg_msg *msg)
+{
+	return msg->security;
+}
+
+static inline struct smack_known *smack_ipc(const struct kern_ipc_perm *ipc)
+{
+	return ipc->security;
+}
+
+static inline struct smack_known *smack_key(const struct key *key)
+{
+	return key->security;
+}
+
 /*
  * Is the directory transmuting?
  */
 static inline int smk_inode_transmutable(const struct inode *isp)
 {
-	struct inode_smack *sip = isp->i_security;
+	struct inode_smack *sip = smack_inode(isp);
 	return (sip->smk_flags & SMK_INODE_TRANSMUTE) != 0;
 }
 
@@ -377,7 +408,7 @@ static inline int smk_inode_transmutable(const struct inode *isp)
  */
 static inline struct smack_known *smk_of_inode(const struct inode *isp)
 {
-	struct inode_smack *sip = isp->i_security;
+	struct inode_smack *sip = smack_inode(isp);
 	return sip->smk_inode;
 }
 
