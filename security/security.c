@@ -89,6 +89,7 @@ int __init security_init(void)
 	pr_info("LSM: file blob size       = %d\n", blob_sizes.lbs_file);
 	pr_info("LSM: inode blob size      = %d\n", blob_sizes.lbs_inode);
 	pr_info("LSM: sock blob size       = %d\n", blob_sizes.lbs_sock);
+	pr_info("LSM: superblock blob size = %d\n", blob_sizes.lbs_superblock);
 #endif
 
 	return 0;
@@ -230,6 +231,7 @@ void __init security_add_blobs(struct lsm_blob_sizes *needed)
 	lsm_set_size(&needed->lbs_file, &blob_sizes.lbs_file);
 	lsm_set_size(&needed->lbs_inode, &blob_sizes.lbs_inode);
 	lsm_set_size(&needed->lbs_sock, &blob_sizes.lbs_sock);
+	lsm_set_size(&needed->lbs_superblock, &blob_sizes.lbs_superblock);
 }
 
 /**
@@ -303,6 +305,31 @@ int lsm_sock_alloc(struct sock *sock)
 
 	sock->sk_security = kzalloc(blob_sizes.lbs_sock, GFP_KERNEL);
 	if (sock->sk_security == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+/**
+ * lsm_superblock_alloc - allocate a composite superblock blob
+ * @sb: the superblock that needs a blob
+ *
+ * Allocate the superblock blob for all the modules
+ *
+ * Returns 0, or -ENOMEM if memory can't be allocated.
+ */
+int lsm_superblock_alloc(struct super_block *sb)
+{
+#ifdef CONFIG_SECURITY_STACKING_DEBUG
+	if (sb->s_security) {
+		pr_info("%s: Inbound superblock blob is not NULL.\n", __func__);
+		return 0;
+	}
+#endif
+	if (blob_sizes.lbs_superblock == 0)
+		return 0;
+
+	sb->s_security = kzalloc(blob_sizes.lbs_superblock, GFP_KERNEL);
+	if (sb->s_security == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -479,12 +506,18 @@ int security_bprm_secureexec(struct linux_binprm *bprm)
 
 int security_sb_alloc(struct super_block *sb)
 {
+	int rc = lsm_superblock_alloc(sb);
+
+	if (rc)
+		return rc;
 	return call_int_hook(sb_alloc_security, 0, sb);
 }
 
 void security_sb_free(struct super_block *sb)
 {
 	call_void_hook(sb_free_security, sb);
+	kfree(sb->s_security);
+	sb->s_security = NULL;
 }
 
 int security_sb_copy_data(char *orig, char *copy)
