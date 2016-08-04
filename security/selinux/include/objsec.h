@@ -183,7 +183,11 @@ static inline struct key_security_struct *selinux_key(const struct key *key)
 
 static inline struct sk_security_struct *selinux_sock(const struct sock *sock)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return sock->sk_security + selinux_blob_sizes.lbs_sock;
+#else
 	return sock->sk_security;
+#endif
 }
 
 #endif /* _SELINUX_OBJSEC_H_ */

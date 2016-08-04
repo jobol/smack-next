@@ -370,7 +370,11 @@ static inline struct inode_smack *smack_inode(const struct inode *inode)
 
 static inline struct socket_smack *smack_sock(const struct sock *sock)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return sock->sk_security + smack_blob_sizes.lbs_sock;
+#else
 	return sock->sk_security;
+#endif
 }
 
 static inline struct superblock_smack *smack_superblock(

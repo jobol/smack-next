@@ -26,6 +26,7 @@
 #include <linux/personality.h>
 #include <linux/backing-dev.h>
 #include <net/flow.h>
+#include <net/sock.h>
 
 #define MAX_LSM_EVM_XATTR	2
 
@@ -87,6 +88,7 @@ int __init security_init(void)
 	pr_info("LSM: cred blob size       = %d\n", blob_sizes.lbs_cred);
 	pr_info("LSM: file blob size       = %d\n", blob_sizes.lbs_file);
 	pr_info("LSM: inode blob size      = %d\n", blob_sizes.lbs_inode);
+	pr_info("LSM: sock blob size       = %d\n", blob_sizes.lbs_sock);
 #endif
 
 	return 0;
@@ -227,6 +229,7 @@ void __init security_add_blobs(struct lsm_blob_sizes *needed)
 	lsm_set_size(&needed->lbs_cred, &blob_sizes.lbs_cred);
 	lsm_set_size(&needed->lbs_file, &blob_sizes.lbs_file);
 	lsm_set_size(&needed->lbs_inode, &blob_sizes.lbs_inode);
+	lsm_set_size(&needed->lbs_sock, &blob_sizes.lbs_sock);
 }
 
 /**
@@ -275,6 +278,31 @@ int lsm_inode_alloc(struct inode *inode)
 
 	inode->i_security = kzalloc(blob_sizes.lbs_inode, GFP_KERNEL);
 	if (inode->i_security == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+/**
+ * lsm_sock_alloc - allocate a composite sock blob
+ * @sock: the sock that needs a blob
+ *
+ * Allocate the sock blob for all the modules
+ *
+ * Returns 0, or -ENOMEM if memory can't be allocated.
+ */
+int lsm_sock_alloc(struct sock *sock)
+{
+#ifdef CONFIG_SECURITY_STACKING_DEBUG
+	if (sock->sk_security) {
+		pr_info("%s: Inbound sock blob is not NULL.\n", __func__);
+		return 0;
+	}
+#endif
+	if (blob_sizes.lbs_sock == 0)
+		return 0;
+
+	sock->sk_security = kzalloc(blob_sizes.lbs_sock, GFP_KERNEL);
+	if (sock->sk_security == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -1645,12 +1673,18 @@ EXPORT_SYMBOL(security_socket_getpeersec_dgram);
 
 int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
 {
+	int rc = lsm_sock_alloc(sk);
+
+	if (rc)
+		return rc;
 	return call_int_hook(sk_alloc_security, 0, sk, family, priority);
 }
 
 void security_sk_free(struct sock *sk)
 {
 	call_void_hook(sk_free_security, sk);
+	kfree(sk->sk_security);
+	sk->sk_security = NULL;
 }
 
 void security_sk_clone(const struct sock *sk, struct sock *newsk)

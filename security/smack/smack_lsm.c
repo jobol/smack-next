@@ -1859,7 +1859,7 @@ static int smack_file_receive(struct file *file)
 
 	if (S_ISSOCK(inode->i_mode)) {
 		sock = SOCKET_I(inode);
-		ssp = sock->sk->sk_security;
+		ssp = smack_sock(sock->sk);
 		tsp = smack_cred(current_cred());
 		/*
 		 * If the receiving process can't write to the
@@ -2279,32 +2279,13 @@ static void smack_task_to_inode(struct task_struct *p, struct inode *inode)
 static int smack_sk_alloc_security(struct sock *sk, int family, gfp_t gfp_flags)
 {
 	struct smack_known *skp = smk_of_current();
-	struct socket_smack *ssp;
-
-	ssp = kzalloc(sizeof(struct socket_smack), gfp_flags);
-	if (ssp == NULL)
-		return -ENOMEM;
+	struct socket_smack *ssp = smack_sock(sk);
 
 	ssp->smk_in = skp;
 	ssp->smk_out = skp;
 	ssp->smk_packet = NULL;
 
-	sk->sk_security = ssp;
-
 	return 0;
-}
-
-/**
- * smack_sk_free_security - Free a socket blob
- * @sk: the socket
- *
- * Clears the blob pointer
- */
-static void smack_sk_free_security(struct sock *sk)
-{
-	struct socket_smack *ssp = smack_sock(sk);
-
-	kfree(ssp);
 }
 
 /**
@@ -4569,6 +4550,7 @@ struct lsm_blob_sizes smack_blob_sizes = {
 	.lbs_cred = sizeof(struct task_smack),
 	.lbs_file = sizeof(struct smack_known *),
 	.lbs_inode = sizeof(struct inode_smack),
+	.lbs_sock = sizeof(struct socket_smack),
 };
 
 static struct security_hook_list smack_hooks[] = {
@@ -4681,7 +4663,6 @@ static struct security_hook_list smack_hooks[] = {
 	LSM_HOOK_INIT(socket_getpeersec_stream, smack_socket_getpeersec_stream),
 	LSM_HOOK_INIT(socket_getpeersec_dgram, smack_socket_getpeersec_dgram),
 	LSM_HOOK_INIT(sk_alloc_security, smack_sk_alloc_security),
-	LSM_HOOK_INIT(sk_free_security, smack_sk_free_security),
 	LSM_HOOK_INIT(sock_graft, smack_sock_graft),
 	LSM_HOOK_INIT(inet_conn_request, smack_inet_conn_request),
 	LSM_HOOK_INIT(inet_csk_clone, smack_inet_csk_clone),
