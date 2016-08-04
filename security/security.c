@@ -86,6 +86,7 @@ int __init security_init(void)
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
 	pr_info("LSM: cred blob size       = %d\n", blob_sizes.lbs_cred);
 	pr_info("LSM: file blob size       = %d\n", blob_sizes.lbs_file);
+	pr_info("LSM: inode blob size      = %d\n", blob_sizes.lbs_inode);
 #endif
 
 	return 0;
@@ -225,6 +226,7 @@ void __init security_add_blobs(struct lsm_blob_sizes *needed)
 {
 	lsm_set_size(&needed->lbs_cred, &blob_sizes.lbs_cred);
 	lsm_set_size(&needed->lbs_file, &blob_sizes.lbs_file);
+	lsm_set_size(&needed->lbs_inode, &blob_sizes.lbs_inode);
 }
 
 /**
@@ -248,6 +250,31 @@ int lsm_file_alloc(struct file *file)
 
 	file->f_security = kzalloc(blob_sizes.lbs_file, GFP_KERNEL);
 	if (file->f_security == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+/**
+ * lsm_inode_alloc - allocate a composite inode blob
+ * @inode: the inode that needs a blob
+ *
+ * Allocate the inode blob for all the modules
+ *
+ * Returns 0, or -ENOMEM if memory can't be allocated.
+ */
+int lsm_inode_alloc(struct inode *inode)
+{
+#ifdef CONFIG_SECURITY_STACKING_DEBUG
+	if (inode->i_security) {
+		pr_info("%s: Inbound inode blob is not NULL.\n", __func__);
+		return 0;
+	}
+#endif
+	if (blob_sizes.lbs_inode == 0)
+		return 0;
+
+	inode->i_security = kzalloc(blob_sizes.lbs_inode, GFP_KERNEL);
+	if (inode->i_security == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -500,7 +527,10 @@ EXPORT_SYMBOL(security_sb_parse_opts_str);
 
 int security_inode_alloc(struct inode *inode)
 {
-	inode->i_security = NULL;
+	int rc = lsm_inode_alloc(inode);
+
+	if (rc)
+		return rc;
 	return call_int_hook(inode_alloc_security, 0, inode);
 }
 
@@ -508,6 +538,8 @@ void security_inode_free(struct inode *inode)
 {
 	integrity_inode_free(inode);
 	call_void_hook(inode_free_security, inode);
+	kfree(inode->i_security);
+	inode->i_security = NULL;
 }
 
 int security_dentry_init_security(struct dentry *dentry, int mode,

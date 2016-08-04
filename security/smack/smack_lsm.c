@@ -291,30 +291,13 @@ static struct smack_known *smk_fetch(const char *name, struct inode *ip,
  * @skp: a pointer to the Smack label entry to use in the blob
  *
  */
-static void init_inode_smack(struct inode_smack *isp, struct smack_known *skp)
+static void init_inode_smack(struct inode *inode, struct smack_known *skp)
 {
+	struct inode_smack *isp = smack_inode(inode);
+
 	isp->smk_inode = skp;
 	isp->smk_flags = 0;
 	mutex_init(&isp->smk_lock);
-}
-
-/**
- * new_inode_smack - allocate an inode security blob
- * @skp: a pointer to the Smack label entry to use in the blob
- *
- * Returns the new blob or NULL if there's no memory available
- */
-static struct inode_smack *new_inode_smack(struct smack_known *skp)
-{
-	struct inode_smack *isp;
-
-	isp = kmem_cache_zalloc(smack_inode_cache, GFP_NOFS);
-	if (isp == NULL)
-		return NULL;
-
-	init_inode_smack(isp, skp);
-
-	return isp;
 }
 
 /**
@@ -841,14 +824,16 @@ static int smack_set_mnt_opts(struct super_block *sb,
 	/*
 	 * Initialize the root inode.
 	 */
-	isp = smack_inode(inode);
-	if (isp == NULL) {
-		isp = new_inode_smack(sp->smk_root);
-		if (isp == NULL)
-			return -ENOMEM;
-		inode->i_security = isp;
-	} else
+	if (inode->i_security == NULL) {
+		i = lsm_inode_alloc(inode);
+		if (i)
+			return i;
+		isp = smack_inode(inode);
+		init_inode_smack(inode, sp->smk_root);
+	} else {
+		isp = smack_inode(inode);
 		isp->smk_inode = sp->smk_root;
+	}
 
 	if (transmute)
 		isp->smk_flags |= SMK_INODE_TRANSMUTE;
@@ -1006,22 +991,8 @@ static int smack_inode_alloc_security(struct inode *inode)
 {
 	struct smack_known *skp = smk_of_current();
 
-	inode->i_security = new_inode_smack(skp);
-	if (inode->i_security == NULL)
-		return -ENOMEM;
+	init_inode_smack(inode, skp);
 	return 0;
-}
-
-/**
- * smack_inode_free_security - free an inode blob
- * @inode: the inode with a blob
- *
- * Clears the blob pointer in inode
- */
-static void smack_inode_free_security(struct inode *inode)
-{
-	kmem_cache_free(smack_inode_cache, smack_inode(inode));
-	inode->i_security = NULL;
 }
 
 /**
@@ -4597,6 +4568,7 @@ static int smack_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen)
 struct lsm_blob_sizes smack_blob_sizes = {
 	.lbs_cred = sizeof(struct task_smack),
 	.lbs_file = sizeof(struct smack_known *),
+	.lbs_inode = sizeof(struct inode_smack),
 };
 
 static struct security_hook_list smack_hooks[] = {
@@ -4617,7 +4589,6 @@ static struct security_hook_list smack_hooks[] = {
 	LSM_HOOK_INIT(bprm_secureexec, smack_bprm_secureexec),
 
 	LSM_HOOK_INIT(inode_alloc_security, smack_inode_alloc_security),
-	LSM_HOOK_INIT(inode_free_security, smack_inode_free_security),
 	LSM_HOOK_INIT(inode_init_security, smack_inode_init_security),
 	LSM_HOOK_INIT(inode_link, smack_inode_link),
 	LSM_HOOK_INIT(inode_unlink, smack_inode_unlink),

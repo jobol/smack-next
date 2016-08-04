@@ -125,8 +125,6 @@ __setup("selinux=", selinux_enabled_setup);
 int selinux_enabled = 1;
 #endif
 
-static struct kmem_cache *sel_inode_cache;
-
 /**
  * selinux_secmark_enabled - Check to see if SECMARK is currently enabled
  *
@@ -220,12 +218,8 @@ static inline u32 current_sid(void)
 
 static int inode_alloc_security(struct inode *inode)
 {
-	struct inode_security_struct *isec;
+	struct inode_security_struct *isec = selinux_inode(inode);
 	u32 sid = current_sid();
-
-	isec = kmem_cache_zalloc(sel_inode_cache, GFP_NOFS);
-	if (!isec)
-		return -ENOMEM;
 
 	mutex_init(&isec->lock);
 	INIT_LIST_HEAD(&isec->list);
@@ -233,7 +227,6 @@ static int inode_alloc_security(struct inode *inode)
 	isec->sid = SECINITSID_UNLABELED;
 	isec->sclass = SECCLASS_FILE;
 	isec->task_sid = sid;
-	inode->i_security = isec;
 
 	return 0;
 }
@@ -311,14 +304,6 @@ static struct inode_security_struct *backing_inode_security(struct dentry *dentr
 	return selinux_inode(inode);
 }
 
-static void inode_free_rcu(struct rcu_head *head)
-{
-	struct inode_security_struct *isec;
-
-	isec = container_of(head, struct inode_security_struct, rcu);
-	kmem_cache_free(sel_inode_cache, isec);
-}
-
 static void inode_free_security(struct inode *inode)
 {
 	struct inode_security_struct *isec = selinux_inode(inode);
@@ -340,17 +325,6 @@ static void inode_free_security(struct inode *inode)
 		list_del_init(&isec->list);
 		spin_unlock(&sbsec->isec_lock);
 	}
-
-	/*
-	 * The inode may still be referenced in a path walk and
-	 * a call to selinux_inode_permission() can be made
-	 * after inode_free_security() is called. Ideally, the VFS
-	 * wouldn't do this, but fixing that is a much harder
-	 * job. For now, simply free the i_security via RCU, and
-	 * leave the current selinux_inode(inode) pointer intact.
-	 * The inode will be freed after the RCU grace period too.
-	 */
-	call_rcu(&isec->rcu, inode_free_rcu);
 }
 
 static int file_alloc_security(struct file *file)
@@ -5991,6 +5965,7 @@ static int selinux_key_getsecurity(struct key *key, char **_buffer)
 struct lsm_blob_sizes selinux_blob_sizes = {
 	.lbs_cred = sizeof(struct task_security_struct),
 	.lbs_file = sizeof(struct file_security_struct),
+	.lbs_inode = sizeof(struct inode_security_struct),
 };
 
 static struct security_hook_list selinux_hooks[] = {
@@ -6235,9 +6210,6 @@ static __init int selinux_init(void)
 
 	default_noexec = !(VM_DATA_DEFAULT_FLAGS & VM_EXEC);
 
-	sel_inode_cache = kmem_cache_create("selinux_inode_security",
-					    sizeof(struct inode_security_struct),
-					    0, SLAB_PANIC, NULL);
 	avc_init();
 
 	security_add_hooks(selinux_hooks, ARRAY_SIZE(selinux_hooks), "selinux");
