@@ -340,11 +340,7 @@ static int file_alloc_security(struct file *file)
 
 static int superblock_alloc_security(struct super_block *sb)
 {
-	struct superblock_security_struct *sbsec;
-
-	sbsec = kzalloc(sizeof(struct superblock_security_struct), GFP_KERNEL);
-	if (!sbsec)
-		return -ENOMEM;
+	struct superblock_security_struct *sbsec = selinux_superblock(sb);
 
 	mutex_init(&sbsec->lock);
 	INIT_LIST_HEAD(&sbsec->isec_head);
@@ -353,16 +349,8 @@ static int superblock_alloc_security(struct super_block *sb)
 	sbsec->sid = SECINITSID_UNLABELED;
 	sbsec->def_sid = SECINITSID_FILE;
 	sbsec->mntpoint_sid = SECINITSID_UNLABELED;
-	sb->s_security = sbsec;
 
 	return 0;
-}
-
-static void superblock_free_security(struct super_block *sb)
-{
-	struct superblock_security_struct *sbsec = selinux_superblock(sb);
-	sb->s_security = NULL;
-	kfree(sbsec);
 }
 
 /* The file system's label must be initialized prior to use. */
@@ -2551,11 +2539,6 @@ static void selinux_bprm_committed_creds(struct linux_binprm *bprm)
 static int selinux_sb_alloc_security(struct super_block *sb)
 {
 	return superblock_alloc_security(sb);
-}
-
-static void selinux_sb_free_security(struct super_block *sb)
-{
-	superblock_free_security(sb);
 }
 
 static inline int match_prefix(char *prefix, int plen, char *option, int olen)
@@ -5960,6 +5943,7 @@ struct lsm_blob_sizes selinux_blob_sizes = {
 	.lbs_file = sizeof(struct file_security_struct),
 	.lbs_inode = sizeof(struct inode_security_struct),
 	.lbs_sock = sizeof(struct sk_security_struct),
+	.lbs_superblock = sizeof(struct superblock_security_struct),
 };
 
 static struct security_hook_list selinux_hooks[] = {
@@ -5986,7 +5970,6 @@ static struct security_hook_list selinux_hooks[] = {
 	LSM_HOOK_INIT(bprm_secureexec, selinux_bprm_secureexec),
 
 	LSM_HOOK_INIT(sb_alloc_security, selinux_sb_alloc_security),
-	LSM_HOOK_INIT(sb_free_security, selinux_sb_free_security),
 	LSM_HOOK_INIT(sb_copy_data, selinux_sb_copy_data),
 	LSM_HOOK_INIT(sb_remount, selinux_sb_remount),
 	LSM_HOOK_INIT(sb_kern_mount, selinux_sb_kern_mount),

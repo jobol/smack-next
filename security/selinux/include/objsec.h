@@ -161,7 +161,11 @@ static inline struct inode_security_struct *selinux_inode(
 static inline struct superblock_security_struct *selinux_superblock(
 					const struct super_block *superblock)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return superblock->s_security + selinux_blob_sizes.lbs_superblock;
+#else
 	return superblock->s_security;
+#endif
 }
 
 static inline struct msg_security_struct *selinux_msg_msg(

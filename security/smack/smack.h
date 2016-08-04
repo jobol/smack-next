@@ -380,7 +380,11 @@ static inline struct socket_smack *smack_sock(const struct sock *sock)
 static inline struct superblock_smack *smack_superblock(
 					const struct super_block *superblock)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return superblock->s_security + smack_blob_sizes.lbs_superblock;
+#else
 	return superblock->s_security;
+#endif
 }
 
 static inline struct smack_known *smack_msg_msg(const struct msg_msg *msg)

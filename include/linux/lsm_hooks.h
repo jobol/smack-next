@@ -1852,6 +1852,7 @@ struct lsm_blob_sizes {
 	int	lbs_file;
 	int	lbs_inode;
 	int	lbs_sock;
+	int	lbs_superblock;
 };
 
 /*
