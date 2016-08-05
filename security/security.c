@@ -25,6 +25,7 @@
 #include <linux/mount.h>
 #include <linux/personality.h>
 #include <linux/backing-dev.h>
+#include <linux/msg.h>
 #include <net/flow.h>
 #include <net/sock.h>
 
@@ -88,6 +89,9 @@ int __init security_init(void)
 	pr_info("LSM: cred blob size       = %d\n", blob_sizes.lbs_cred);
 	pr_info("LSM: file blob size       = %d\n", blob_sizes.lbs_file);
 	pr_info("LSM: inode blob size      = %d\n", blob_sizes.lbs_inode);
+	pr_info("LSM: ipc blob size        = %d\n", blob_sizes.lbs_ipc);
+	pr_info("LSM: key blob size        = %d\n", blob_sizes.lbs_key);
+	pr_info("LSM: msg_msg blob size    = %d\n", blob_sizes.lbs_msg_msg);
 	pr_info("LSM: sock blob size       = %d\n", blob_sizes.lbs_sock);
 	pr_info("LSM: superblock blob size = %d\n", blob_sizes.lbs_superblock);
 #endif
@@ -230,6 +234,9 @@ void __init security_add_blobs(struct lsm_blob_sizes *needed)
 	lsm_set_size(&needed->lbs_cred, &blob_sizes.lbs_cred);
 	lsm_set_size(&needed->lbs_file, &blob_sizes.lbs_file);
 	lsm_set_size(&needed->lbs_inode, &blob_sizes.lbs_inode);
+	lsm_set_size(&needed->lbs_ipc, &blob_sizes.lbs_ipc);
+	lsm_set_size(&needed->lbs_key, &blob_sizes.lbs_key);
+	lsm_set_size(&needed->lbs_msg_msg, &blob_sizes.lbs_msg_msg);
 	lsm_set_size(&needed->lbs_sock, &blob_sizes.lbs_sock);
 	lsm_set_size(&needed->lbs_superblock, &blob_sizes.lbs_superblock);
 }
@@ -280,6 +287,81 @@ int lsm_inode_alloc(struct inode *inode)
 
 	inode->i_security = kzalloc(blob_sizes.lbs_inode, GFP_KERNEL);
 	if (inode->i_security == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+/**
+ * lsm_ipc_alloc - allocate a composite ipc blob
+ * @kip: the ipc that needs a blob
+ *
+ * Allocate the ipc blob for all the modules
+ *
+ * Returns 0, or -ENOMEM if memory can't be allocated.
+ */
+int lsm_ipc_alloc(struct kern_ipc_perm *kip)
+{
+#ifdef CONFIG_SECURITY_STACKING_DEBUG
+	if (kip->security) {
+		pr_info("%s: Inbound ipc blob is not NULL.\n", __func__);
+		return 0;
+	}
+#endif
+	if (blob_sizes.lbs_ipc == 0)
+		return 0;
+
+	kip->security = kzalloc(blob_sizes.lbs_ipc, GFP_KERNEL);
+	if (kip->security == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+/**
+ * lsm_key_alloc - allocate a composite key blob
+ * @key: the key that needs a blob
+ *
+ * Allocate the key blob for all the modules
+ *
+ * Returns 0, or -ENOMEM if memory can't be allocated.
+ */
+int lsm_key_alloc(struct key *key)
+{
+#ifdef CONFIG_SECURITY_STACKING_DEBUG
+	if (key->security) {
+		pr_info("%s: Inbound key blob is not NULL.\n", __func__);
+		return 0;
+	}
+#endif
+	if (blob_sizes.lbs_key == 0)
+		return 0;
+
+	key->security = kzalloc(blob_sizes.lbs_key, GFP_KERNEL);
+	if (key->security == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+/**
+ * lsm_msg_msg_alloc - allocate a composite msg_msg blob
+ * @mp: the msg_msg that needs a blob
+ *
+ * Allocate the ipc blob for all the modules
+ *
+ * Returns 0, or -ENOMEM if memory can't be allocated.
+ */
+int lsm_msg_msg_alloc(struct msg_msg *mp)
+{
+#ifdef CONFIG_SECURITY_STACKING_DEBUG
+	if (mp->security) {
+		pr_info("%s: Inbound msg_msg blob is not NULL.\n", __func__);
+		return 0;
+	}
+#endif
+	if (blob_sizes.lbs_msg_msg == 0)
+		return 0;
+
+	mp->security = kzalloc(blob_sizes.lbs_msg_msg, GFP_KERNEL);
+	if (mp->security == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -1313,22 +1395,36 @@ void security_ipc_getsecid(struct kern_ipc_perm *ipcp, u32 *secid)
 
 int security_msg_msg_alloc(struct msg_msg *msg)
 {
+	int rc = lsm_msg_msg_alloc(msg);
+
+	if (rc)
+		return rc;
 	return call_int_hook(msg_msg_alloc_security, 0, msg);
 }
 
 void security_msg_msg_free(struct msg_msg *msg)
 {
 	call_void_hook(msg_msg_free_security, msg);
+	kfree(msg->security);
+	msg->security = NULL;
 }
 
 int security_msg_queue_alloc(struct msg_queue *msq)
 {
+	int rc = lsm_ipc_alloc(&msq->q_perm);
+
+	if (rc)
+		return rc;
 	return call_int_hook(msg_queue_alloc_security, 0, msq);
 }
 
 void security_msg_queue_free(struct msg_queue *msq)
 {
+	struct kern_ipc_perm *kip = &msq->q_perm;
+
 	call_void_hook(msg_queue_free_security, msq);
+	kfree(kip->security);
+	kip->security = NULL;
 }
 
 int security_msg_queue_associate(struct msg_queue *msq, int msqflg)
@@ -1355,12 +1451,20 @@ int security_msg_queue_msgrcv(struct msg_queue *msq, struct msg_msg *msg,
 
 int security_shm_alloc(struct shmid_kernel *shp)
 {
+	int rc = lsm_ipc_alloc(&shp->shm_perm);
+
+	if (rc)
+		return rc;
 	return call_int_hook(shm_alloc_security, 0, shp);
 }
 
 void security_shm_free(struct shmid_kernel *shp)
 {
+	struct kern_ipc_perm *kip = &shp->shm_perm;
+
 	call_void_hook(shm_free_security, shp);
+	kfree(kip->security);
+	kip->security = NULL;
 }
 
 int security_shm_associate(struct shmid_kernel *shp, int shmflg)
@@ -1380,12 +1484,20 @@ int security_shm_shmat(struct shmid_kernel *shp, char __user *shmaddr, int shmfl
 
 int security_sem_alloc(struct sem_array *sma)
 {
+	int rc = lsm_ipc_alloc(&sma->sem_perm);
+
+	if (rc)
+		return rc;
 	return call_int_hook(sem_alloc_security, 0, sma);
 }
 
 void security_sem_free(struct sem_array *sma)
 {
+	struct kern_ipc_perm *kip = &sma->sem_perm;
+
 	call_void_hook(sem_free_security, sma);
+	kfree(kip->security);
+	kip->security = NULL;
 }
 
 int security_sem_associate(struct sem_array *sma, int semflg)
@@ -1920,12 +2032,18 @@ EXPORT_SYMBOL(security_skb_classify_flow);
 int security_key_alloc(struct key *key, const struct cred *cred,
 		       unsigned long flags)
 {
+	int rc = lsm_key_alloc(key);
+
+	if (rc)
+		return rc;
 	return call_int_hook(key_alloc, 0, key, cred, flags);
 }
 
 void security_key_free(struct key *key)
 {
 	call_void_hook(key_free, key);
+	kfree(key->security);
+	key->security = NULL;
 }
 
 int security_key_permission(key_ref_t key_ref,

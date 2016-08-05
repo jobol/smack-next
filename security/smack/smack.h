@@ -387,19 +387,31 @@ static inline struct superblock_smack *smack_superblock(
 #endif
 }
 
-static inline struct smack_known *smack_msg_msg(const struct msg_msg *msg)
+static inline struct smack_known **smack_msg_msg(const struct msg_msg *msg)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return msg->security + smack_blob_sizes.lbs_msg_msg;
+#else
 	return msg->security;
+#endif
 }
 
-static inline struct smack_known *smack_ipc(const struct kern_ipc_perm *ipc)
+static inline struct smack_known **smack_ipc(const struct kern_ipc_perm *ipc)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return ipc->security + smack_blob_sizes.lbs_ipc;
+#else
 	return ipc->security;
+#endif
 }
 
-static inline struct smack_known *smack_key(const struct key *key)
+static inline struct smack_known **smack_key(const struct key *key)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return key->security + smack_blob_sizes.lbs_key;
+#else
 	return key->security;
+#endif
 }
 
 /*
