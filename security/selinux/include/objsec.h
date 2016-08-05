@@ -171,18 +171,30 @@ static inline struct superblock_security_struct *selinux_superblock(
 static inline struct msg_security_struct *selinux_msg_msg(
 						const struct msg_msg *msg_msg)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return msg_msg->security + selinux_blob_sizes.lbs_msg_msg;
+#else
 	return msg_msg->security;
+#endif
 }
 
 static inline struct ipc_security_struct *selinux_ipc(
 						const struct kern_ipc_perm *ipc)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return ipc->security + selinux_blob_sizes.lbs_ipc;
+#else
 	return ipc->security;
+#endif
 }
 
 static inline struct key_security_struct *selinux_key(const struct key *key)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return key->security + selinux_blob_sizes.lbs_key;
+#else
 	return key->security;
+#endif
 }
 
 static inline struct sk_security_struct *selinux_sock(const struct sock *sock)
