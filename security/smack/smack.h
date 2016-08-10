@@ -405,6 +405,7 @@ static inline struct smack_known **smack_ipc(const struct kern_ipc_perm *ipc)
 #endif
 }
 
+#ifdef CONFIG_KEYS
 static inline struct smack_known **smack_key(const struct key *key)
 {
 #ifdef CONFIG_SECURITY_STACKING
@@ -413,6 +414,7 @@ static inline struct smack_known **smack_key(const struct key *key)
 	return key->security;
 #endif
 }
+#endif /* CONFIG_KEYS */
 
 /*
  * Is the directory transmuting?

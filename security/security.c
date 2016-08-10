@@ -90,11 +90,13 @@ int __init security_init(void)
 	pr_info("LSM: file blob size       = %d\n", blob_sizes.lbs_file);
 	pr_info("LSM: inode blob size      = %d\n", blob_sizes.lbs_inode);
 	pr_info("LSM: ipc blob size        = %d\n", blob_sizes.lbs_ipc);
+#ifdef CONFIG_KEYS
 	pr_info("LSM: key blob size        = %d\n", blob_sizes.lbs_key);
+#endif /* CONFIG_KEYS */
 	pr_info("LSM: msg_msg blob size    = %d\n", blob_sizes.lbs_msg_msg);
 	pr_info("LSM: sock blob size       = %d\n", blob_sizes.lbs_sock);
 	pr_info("LSM: superblock blob size = %d\n", blob_sizes.lbs_superblock);
-#endif
+#endif /* CONFIG_SECURITY_STACKING_DEBUG */
 
 	return 0;
 }
@@ -316,6 +318,7 @@ int lsm_ipc_alloc(struct kern_ipc_perm *kip)
 	return 0;
 }
 
+#ifdef CONFIG_KEYS
 /**
  * lsm_key_alloc - allocate a composite key blob
  * @key: the key that needs a blob
@@ -340,6 +343,7 @@ int lsm_key_alloc(struct key *key)
 		return -ENOMEM;
 	return 0;
 }
+#endif /* CONFIG_KEYS */
 
 /**
  * lsm_msg_msg_alloc - allocate a composite msg_msg blob

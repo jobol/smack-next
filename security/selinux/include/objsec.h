@@ -188,6 +188,7 @@ static inline struct ipc_security_struct *selinux_ipc(
 #endif
 }
 
+#ifdef CONFIG_KEYS
 static inline struct key_security_struct *selinux_key(const struct key *key)
 {
 #ifdef CONFIG_SECURITY_STACKING
@@ -196,6 +197,7 @@ static inline struct key_security_struct *selinux_key(const struct key *key)
 	return key->security;
 #endif
 }
+#endif /* CONFIG_KEYS */
 
 static inline struct sk_security_struct *selinux_sock(const struct sock *sock)
 {
