@@ -373,12 +373,13 @@ int lsm_msg_msg_alloc(struct msg_msg *mp)
 /**
  * lsm_sock_alloc - allocate a composite sock blob
  * @sock: the sock that needs a blob
+ * @priority: allocation mode
  *
  * Allocate the sock blob for all the modules
  *
  * Returns 0, or -ENOMEM if memory can't be allocated.
  */
-int lsm_sock_alloc(struct sock *sock)
+int lsm_sock_alloc(struct sock *sock, gfp_t priority)
 {
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
 	if (sock->sk_security) {
@@ -389,7 +390,7 @@ int lsm_sock_alloc(struct sock *sock)
 	if (blob_sizes.lbs_sock == 0)
 		return 0;
 
-	sock->sk_security = kzalloc(blob_sizes.lbs_sock, GFP_KERNEL);
+	sock->sk_security = kzalloc(blob_sizes.lbs_sock, priority);
 	if (sock->sk_security == NULL)
 		return -ENOMEM;
 	return 0;
@@ -1822,7 +1823,7 @@ EXPORT_SYMBOL(security_socket_getpeersec_dgram);
 
 int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
 {
-	int rc = lsm_sock_alloc(sk);
+	int rc = lsm_sock_alloc(sk, priority);
 
 	if (rc)
 		return rc;
