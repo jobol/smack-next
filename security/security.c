@@ -196,10 +196,8 @@ void __init security_add_hooks(struct security_hook_list *hooks, int count,
 int lsm_cred_alloc(struct cred *cred, gfp_t gfp)
 {
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
-	if (cred->security) {
+	if (cred->security)
 		pr_info("%s: Inbound cred blob is not NULL.\n", __func__);
-		return 0;
-	}
 #endif
 	if (blob_sizes.lbs_cred == 0)
 		return 0;
@@ -254,10 +252,8 @@ void __init security_add_blobs(struct lsm_blob_sizes *needed)
 int lsm_file_alloc(struct file *file)
 {
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
-	if (file->f_security) {
+	if (file->f_security)
 		pr_info("%s: Inbound file blob is not NULL.\n", __func__);
-		return 0;
-	}
 #endif
 	if (blob_sizes.lbs_file == 0)
 		return 0;
@@ -279,10 +275,8 @@ int lsm_file_alloc(struct file *file)
 int lsm_inode_alloc(struct inode *inode)
 {
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
-	if (inode->i_security) {
+	if (inode->i_security)
 		pr_info("%s: Inbound inode blob is not NULL.\n", __func__);
-		return 0;
-	}
 #endif
 	if (blob_sizes.lbs_inode == 0)
 		return 0;
@@ -304,10 +298,8 @@ int lsm_inode_alloc(struct inode *inode)
 int lsm_ipc_alloc(struct kern_ipc_perm *kip)
 {
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
-	if (kip->security) {
+	if (kip->security)
 		pr_info("%s: Inbound ipc blob is not NULL.\n", __func__);
-		return 0;
-	}
 #endif
 	if (blob_sizes.lbs_ipc == 0)
 		return 0;
@@ -330,10 +322,8 @@ int lsm_ipc_alloc(struct kern_ipc_perm *kip)
 int lsm_key_alloc(struct key *key)
 {
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
-	if (key->security) {
+	if (key->security)
 		pr_info("%s: Inbound key blob is not NULL.\n", __func__);
-		return 0;
-	}
 #endif
 	if (blob_sizes.lbs_key == 0)
 		return 0;
@@ -356,10 +346,8 @@ int lsm_key_alloc(struct key *key)
 int lsm_msg_msg_alloc(struct msg_msg *mp)
 {
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
-	if (mp->security) {
+	if (mp->security)
 		pr_info("%s: Inbound msg_msg blob is not NULL.\n", __func__);
-		return 0;
-	}
 #endif
 	if (blob_sizes.lbs_msg_msg == 0)
 		return 0;
@@ -382,10 +370,8 @@ int lsm_msg_msg_alloc(struct msg_msg *mp)
 int lsm_sock_alloc(struct sock *sock, gfp_t priority)
 {
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
-	if (sock->sk_security) {
+	if (sock->sk_security)
 		pr_info("%s: Inbound sock blob is not NULL.\n", __func__);
-		return 0;
-	}
 #endif
 	if (blob_sizes.lbs_sock == 0)
 		return 0;
@@ -407,10 +393,8 @@ int lsm_sock_alloc(struct sock *sock, gfp_t priority)
 int lsm_superblock_alloc(struct super_block *sb)
 {
 #ifdef CONFIG_SECURITY_STACKING_DEBUG
-	if (sb->s_security) {
+	if (sb->s_security)
 		pr_info("%s: Inbound superblock blob is not NULL.\n", __func__);
-		return 0;
-	}
 #endif
 	if (blob_sizes.lbs_superblock == 0)
 		return 0;
