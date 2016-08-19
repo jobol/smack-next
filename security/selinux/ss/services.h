@@ -17,5 +17,9 @@ void services_compute_xperms_drivers(struct extended_perms *xperms,
 void services_compute_xperms_decision(struct extended_perms_decision *xpermd,
 					struct avtab_node *node);
 
+int context_struct_to_string(struct context *context, char **scontext,
+				u32 *scontext_len);
+
+
 #endif	/* _SS_SERVICES_H_ */
 

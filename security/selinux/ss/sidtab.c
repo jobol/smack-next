@@ -9,6 +9,7 @@
 #include <linux/errno.h>
 #include "flask.h"
 #include "security.h"
+#include "services.h"
 #include "sidtab.h"
 
 #define SIDTAB_HASH(sid) \
@@ -34,6 +35,8 @@ int sidtab_insert(struct sidtab *s, u32 sid, struct context *context)
 {
 	int hvalue, rc = 0;
 	struct sidtab_node *prev, *cur, *newnode;
+	char *newstr;
+	int newlen;
 
 	if (!s) {
 		rc = -ENOMEM;
@@ -63,6 +66,16 @@ int sidtab_insert(struct sidtab *s, u32 sid, struct context *context)
 		kfree(newnode);
 		rc = -ENOMEM;
 		goto out;
+	}
+	if (!context->str) {
+		if (context_struct_to_string(context, &newstr, &newlen) < 0) {
+			context_destroy(&newnode->context);
+			kfree(newnode);
+			rc = -ENOMEM;
+			goto out;
+		}
+		newnode->context.str = newstr;
+		newnode->context.len = newlen;
 	}
 
 	if (prev) {
@@ -95,10 +108,10 @@ static struct context *sidtab_search_core(struct sidtab *s, u32 sid, int force)
 	while (cur && sid > cur->sid)
 		cur = cur->next;
 
-	if (force && cur && sid == cur->sid && cur->context.len)
+	if (force && cur && sid == cur->sid && cur->context.forced)
 		return &cur->context;
 
-	if (cur == NULL || sid != cur->sid || cur->context.len) {
+	if (cur == NULL || sid != cur->sid || cur->context.forced) {
 		/* Remap invalid SIDs to the unlabeled SID. */
 		sid = SECINITSID_UNLABELED;
 		hvalue = SIDTAB_HASH(sid);
@@ -219,7 +232,7 @@ int sidtab_context_to_sid(struct sidtab *s,
 			goto unlock_out;
 		}
 		sid = s->next_sid++;
-		if (context->len)
+		if (context->forced)
 			printk(KERN_INFO
 		       "SELinux:  Context %s is not valid (left unmapped).\n",
 			       context->str);

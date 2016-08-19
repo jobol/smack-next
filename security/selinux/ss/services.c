@@ -89,8 +89,6 @@ int ss_initialized;
 static u32 latest_granting;
 
 /* Forward declaration. */
-static int context_struct_to_string(struct context *context, char **scontext,
-				    u32 *scontext_len);
 
 static void context_struct_compute_av(struct context *scontext,
 					struct context *tcontext,
@@ -1176,7 +1174,8 @@ allow:
  * to point to this string and set `*scontext_len' to
  * the length of the string.
  */
-static int context_struct_to_string(struct context *context, char **scontext, u32 *scontext_len)
+int context_struct_to_string(struct context *context, char **scontext,
+				u32 *scontext_len)
 {
 	char *scontextp;
 
@@ -1245,18 +1244,11 @@ static int security_sid_to_context_core(u32 sid, char **scontext,
 
 	if (!ss_initialized) {
 		if (sid <= SECINITSID_NUM) {
-			char *scontextp;
 
 			*scontext_len = strlen(initial_sid_to_string[sid]) + 1;
 			if (!scontext)
 				goto out;
-			scontextp = kmemdup(initial_sid_to_string[sid],
-					    *scontext_len, GFP_ATOMIC);
-			if (!scontextp) {
-				rc = -ENOMEM;
-				goto out;
-			}
-			*scontext = scontextp;
+			*scontext = (char *)initial_sid_to_string[sid];
 			goto out;
 		}
 		printk(KERN_ERR "SELinux: %s:  called before initial "
@@ -1435,6 +1427,7 @@ static int security_context_to_sid_core(const char *scontext, u32 scontext_len,
 	if (rc == -EINVAL && force) {
 		context.str = str;
 		context.len = scontext_len;
+		context.forced = true;
 		str = NULL;
 	} else if (rc)
 		goto out_unlock;
@@ -1862,7 +1855,7 @@ static int convert_context(u32 key,
 
 	args = p;
 
-	if (c->str) {
+	if (c->str && c->forced) {
 		struct context ctx;
 
 		rc = -ENOMEM;
@@ -1878,6 +1871,7 @@ static int convert_context(u32 key,
 			       c->str);
 			/* Replace string with mapped representation. */
 			kfree(c->str);
+			c->forced = false;
 			memcpy(c, &ctx, sizeof(*c));
 			goto out;
 		} else if (rc == -EINVAL) {
@@ -1976,6 +1970,7 @@ bad:
 	context_destroy(c);
 	c->str = s;
 	c->len = len;
+	c->forced = true;
 	printk(KERN_INFO "SELinux:  Context %s became invalid (unmapped).\n",
 	       c->str);
 	rc = 0;

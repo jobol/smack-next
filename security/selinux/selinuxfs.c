@@ -582,7 +582,6 @@ static ssize_t sel_write_context(struct file *file, char *buf, size_t size)
 	memcpy(buf, canon, len);
 	length = len;
 out:
-	kfree(canon);
 	return length;
 }
 
@@ -902,7 +901,6 @@ static ssize_t sel_write_create(struct file *file, char *buf, size_t size)
 	memcpy(buf, newcon, len);
 	length = len;
 out:
-	kfree(newcon);
 	kfree(namebuf);
 	kfree(tcon);
 	kfree(scon);
@@ -959,7 +957,6 @@ static ssize_t sel_write_relabel(struct file *file, char *buf, size_t size)
 	memcpy(buf, newcon, len);
 	length = len;
 out:
-	kfree(newcon);
 	kfree(tcon);
 	kfree(scon);
 	return length;
@@ -1009,12 +1006,10 @@ static ssize_t sel_write_user(struct file *file, char *buf, size_t size)
 			goto out;
 		}
 		if ((length + len) >= SIMPLE_TRANSACTION_LIMIT) {
-			kfree(newcon);
 			length = -ERANGE;
 			goto out;
 		}
 		memcpy(ptr, newcon, len);
-		kfree(newcon);
 		ptr += len;
 		length += len;
 	}
@@ -1078,7 +1073,6 @@ static ssize_t sel_write_member(struct file *file, char *buf, size_t size)
 	memcpy(buf, newcon, len);
 	length = len;
 out:
-	kfree(newcon);
 	kfree(tcon);
 	kfree(scon);
 	return length;
@@ -1521,7 +1515,6 @@ static ssize_t sel_read_initcon(struct file *file, char __user *buf,
 		return ret;
 
 	ret = simple_read_from_buffer(buf, count, ppos, con, len);
-	kfree(con);
 	return ret;
 }
 
