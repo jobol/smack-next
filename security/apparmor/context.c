@@ -50,8 +50,6 @@ void aa_free_task_context(struct aa_task_cxt *cxt)
 		aa_put_profile(cxt->profile);
 		aa_put_profile(cxt->previous);
 		aa_put_profile(cxt->onexec);
-
-		kzfree(cxt);
 	}
 }
 
