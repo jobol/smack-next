@@ -152,4 +152,60 @@ static inline struct file_security_struct *selinux_file(const struct file *file)
 #endif
 }
 
+static inline struct inode_security_struct *selinux_inode(
+						const struct inode *inode)
+{
+	return inode->i_security;
+}
+
+static inline struct superblock_security_struct *selinux_superblock(
+					const struct super_block *superblock)
+{
+#ifdef CONFIG_SECURITY_STACKING
+	return superblock->s_security + selinux_blob_sizes.lbs_superblock;
+#else
+	return superblock->s_security;
+#endif
+}
+
+static inline struct msg_security_struct *selinux_msg_msg(
+						const struct msg_msg *msg_msg)
+{
+#ifdef CONFIG_SECURITY_STACKING
+	return msg_msg->security + selinux_blob_sizes.lbs_msg_msg;
+#else
+	return msg_msg->security;
+#endif
+}
+
+static inline struct ipc_security_struct *selinux_ipc(
+						const struct kern_ipc_perm *ipc)
+{
+#ifdef CONFIG_SECURITY_STACKING
+	return ipc->security + selinux_blob_sizes.lbs_ipc;
+#else
+	return ipc->security;
+#endif
+}
+
+#ifdef CONFIG_KEYS
+static inline struct key_security_struct *selinux_key(const struct key *key)
+{
+#ifdef CONFIG_SECURITY_STACKING
+	return key->security + selinux_blob_sizes.lbs_key;
+#else
+	return key->security;
+#endif
+}
+#endif /* CONFIG_KEYS */
+
+static inline struct sk_security_struct *selinux_sock(const struct sock *sock)
+{
+#ifdef CONFIG_SECURITY_STACKING
+	return sock->sk_security + selinux_blob_sizes.lbs_sock;
+#else
+	return sock->sk_security;
+#endif
+}
+
 #endif /* _SELINUX_OBJSEC_H_ */
