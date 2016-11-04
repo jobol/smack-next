@@ -87,14 +87,24 @@ int aa_set_current_hat(struct aa_profile *profile, u64 token);
 int aa_restore_previous_profile(u64 cookie);
 struct aa_profile *aa_get_task_profile(struct task_struct *task);
 
+extern struct lsm_blob_sizes apparmor_blob_sizes;
+
 static inline struct aa_task_cxt *apparmor_cred(const struct cred *cred)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return cred->security + apparmor_blob_sizes.lbs_cred;
+#else
 	return cred->security;
+#endif
 }
 
 static inline struct aa_file_cxt *apparmor_file(const struct file *file)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	return file->f_security + apparmor_blob_sizes.lbs_file;
+#else
 	return file->f_security;
+#endif
 }
 
 /**
