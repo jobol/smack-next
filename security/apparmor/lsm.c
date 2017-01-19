@@ -438,8 +438,12 @@ static int apparmor_getprocattr(struct task_struct *task, char *name,
 	const struct cred *cred = get_task_cred(task);
 	struct aa_task_cxt *cxt = cred_cxt(cred);
 	struct aa_profile *profile = NULL;
+	char *vp;
+	char *np;
 
 	if (strcmp(name, "current") == 0)
+		profile = aa_get_newest_profile(cxt->profile);
+	else if (strcmp(name, "context") == 0)
 		profile = aa_get_newest_profile(cxt->profile);
 	else if (strcmp(name, "prev") == 0  && cxt->previous)
 		profile = aa_get_newest_profile(cxt->previous);
@@ -448,9 +452,29 @@ static int apparmor_getprocattr(struct task_struct *task, char *name,
 	else
 		error = -EINVAL;
 
-	if (profile)
-		error = aa_getprocattr(profile, value);
+	if (profile == NULL)
+		goto put_out;
 
+	error = aa_getprocattr(profile, &vp);
+	if (error < 0)
+		goto put_out;
+
+	if (strcmp(name, "context") == 0) {
+		*value = kasprintf(GFP_KERNEL, "apparmor='%s'", vp);
+		if (*value == NULL) {
+			error = -ENOMEM;
+			goto put_out;
+		}
+		np = strchr(*value, '\n');
+		if (np != NULL) {
+			np[0] = '\'';
+			np[1] = '\0';
+		}
+		error = strlen(*value);
+	} else
+		*value = vp;
+
+put_out:
 	aa_put_profile(profile);
 	put_cred(cred);
 
@@ -492,7 +516,7 @@ static int apparmor_setprocattr(struct task_struct *task, char *name,
 		goto out;
 
 	arg_size = size - (args - (largs ? largs : (char *) value));
-	if (strcmp(name, "current") == 0) {
+	if (strcmp(name, "current") == 0 || strcmp(name, "context") == 0) {
 		if (strcmp(command, "changehat") == 0) {
 			error = aa_setprocattr_changehat(args, arg_size,
 							 !AA_DO_TEST);
@@ -514,7 +538,10 @@ static int apparmor_setprocattr(struct task_struct *task, char *name,
 		else
 			goto fail;
 	} else
-		/* only support the "current" and "exec" process attributes */
+		/*
+		 * only support the "current", "context" and "exec"
+		 * process attributes
+		 */
 		goto fail;
 
 	if (!error)
@@ -832,18 +859,34 @@ static int __init apparmor_init(void)
 	int error;
 
 	if (!finish) {
-		if (apparmor_enabled && security_module_enable("apparmor"))
+#ifdef CONFIG_SECURITY_APPARMOR_STACKED
+		if (apparmor_enabled &&
+		    security_module_enable("apparmor", true))
 			security_add_blobs(&apparmor_blob_sizes);
+#else
+		if (apparmor_enabled &&
+		    security_module_enable("apparmor", false))
+			security_add_blobs(&apparmor_blob_sizes);
+#endif
 		finish = 1;
 		return 0;
 	}
 
-	if (!apparmor_enabled || !security_module_enable("apparmor")) {
+#ifdef CONFIG_SECURITY_APPARMOR_STACKED
+	if (!apparmor_enabled || !security_module_enable("apparmor", true)) {
 		aa_info_message(
 			"AppArmor disabled by boot time parameter");
 		apparmor_enabled = 0;
 		return 0;
 	}
+#else
+	if (!apparmor_enabled || !security_module_enable("apparmor", false)) {
+		aa_info_message(
+			"AppArmor disabled by boot time parameter");
+		apparmor_enabled = 0;
+		return 0;
+	}
+#endif
 
 
 	error = aa_alloc_root_ns();

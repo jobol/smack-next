@@ -561,8 +561,13 @@ static int __init tomoyo_init(void)
 	struct cred *cred = (struct cred *) current_cred();
 	struct tomoyo_domain_info **blob;
 
-	if (!security_module_enable("tomoyo"))
+#ifdef CONFIG_SECURITY_TOMOYO_STACKED
+	if (!security_module_enable("tomoyo", true))
 		return 0;
+#else
+	if (!security_module_enable("tomoyo", false))
+		return 0;
+#endif
 
 	if (!finish) {
 		security_add_blobs(&tomoyo_blob_sizes);
