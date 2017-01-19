@@ -321,7 +321,7 @@ static int apparmor_inode_getattr(const struct path *path)
 
 static int apparmor_file_open(struct file *file, const struct cred *cred)
 {
-	struct aa_file_cxt *fcxt = file->f_security;
+	struct aa_file_cxt *fcxt = file_cxt(file);
 	struct aa_profile *profile;
 	int error = 0;
 
@@ -352,26 +352,9 @@ static int apparmor_file_open(struct file *file, const struct cred *cred)
 	return error;
 }
 
-static int apparmor_file_alloc_security(struct file *file)
-{
-	/* freed by apparmor_file_free_security */
-	file->f_security = aa_alloc_file_context(GFP_KERNEL);
-	if (!file->f_security)
-		return -ENOMEM;
-	return 0;
-
-}
-
-static void apparmor_file_free_security(struct file *file)
-{
-	struct aa_file_cxt *cxt = file->f_security;
-
-	aa_free_file_context(cxt);
-}
-
 static int common_file_perm(int op, struct file *file, u32 mask)
 {
-	struct aa_file_cxt *fcxt = file->f_security;
+	struct aa_file_cxt *fcxt = file_cxt(file);
 	struct aa_profile *profile, *fprofile = aa_cred_profile(file->f_cred);
 	int error = 0;
 
@@ -417,7 +400,7 @@ static int common_mmap(int op, struct file *file, unsigned long prot,
 {
 	int mask = 0;
 
-	if (!file || !file->f_security)
+	if (!file || file_cxt(file) == NULL)
 		return 0;
 
 	if (prot & PROT_READ)
@@ -565,6 +548,7 @@ static int apparmor_task_setrlimit(struct task_struct *task,
 
 struct lsm_blob_sizes apparmor_blob_sizes = {
 	.lbs_cred = sizeof(struct aa_task_cxt),
+	.lbs_file = sizeof(struct aa_file_cxt),
 };
 
 static struct security_hook_list apparmor_hooks[] = {
@@ -587,8 +571,6 @@ static struct security_hook_list apparmor_hooks[] = {
 
 	LSM_HOOK_INIT(file_open, apparmor_file_open),
 	LSM_HOOK_INIT(file_permission, apparmor_file_permission),
-	LSM_HOOK_INIT(file_alloc_security, apparmor_file_alloc_security),
-	LSM_HOOK_INIT(file_free_security, apparmor_file_free_security),
 	LSM_HOOK_INIT(mmap_file, apparmor_mmap_file),
 	LSM_HOOK_INIT(file_mprotect, apparmor_file_mprotect),
 	LSM_HOOK_INIT(file_lock, apparmor_file_lock),
