@@ -1885,6 +1885,12 @@ struct security_hook_list {
 struct lsm_blob_sizes {
 	int	lbs_cred;
 	int	lbs_file;
+	int	lbs_inode;
+	int	lbs_ipc;
+	int	lbs_key;
+	int	lbs_msg_msg;
+	int	lbs_sock;
+	int	lbs_superblock;
 };
 
 /*
@@ -1940,6 +1946,7 @@ static inline void loadpin_add_hooks(void) { };
 #endif
 
 extern int lsm_cred_alloc(struct cred *cred, gfp_t gfp);
+extern int lsm_inode_alloc(struct inode *inode);
 
 #ifdef CONFIG_SECURITY
 static inline void lsm_early_cred(struct cred *cred)
@@ -1953,6 +1960,19 @@ static inline void lsm_early_cred(struct cred *cred)
 	rc = lsm_cred_alloc(cred, GFP_KERNEL);
 	if (rc)
 		panic("%s: Early cred alloc failed.\n", __func__);
+}
+
+static inline void lsm_early_inode(struct inode *inode)
+{
+	int rc;
+
+	if (inode == NULL)
+		panic("%s: NULL inode.\n", __func__);
+	if (inode->i_security != NULL)
+		return;
+	rc = lsm_inode_alloc(inode);
+	if (rc)
+		panic("%s: Early inode alloc failed.\n", __func__);
 }
 #endif
 
