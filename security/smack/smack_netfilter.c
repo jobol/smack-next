@@ -29,11 +29,19 @@ static unsigned int smack_ipv6_output(void *priv,
 	struct sock *sk = skb_to_full_sk(skb);
 	struct socket_smack *ssp;
 	struct smack_known *skp;
+	struct secids marks;
 
 	if (sk && smack_sock(sk)) {
 		ssp = smack_sock(sk);
 		skp = ssp->smk_out;
-		skb->secmark = skp->smk_secid;
+		secid_init(&marks);
+		if (skb->secmark) {
+			secid_expand(&marks, skb->secmark);
+			marks.common = 0;
+		}
+		marks.smack = skp->smk_secid;
+		secid_combine(&marks, __func__);
+		skb->secmark = marks.common;
 	}
 
 	return NF_ACCEPT;
@@ -47,11 +55,19 @@ static unsigned int smack_ipv4_output(void *priv,
 	struct sock *sk = skb_to_full_sk(skb);
 	struct socket_smack *ssp;
 	struct smack_known *skp;
+	struct secids marks;
 
 	if (sk && smack_sock(sk)) {
 		ssp = smack_sock(sk);
 		skp = ssp->smk_out;
-		skb->secmark = skp->smk_secid;
+		secid_init(&marks);
+		if (skb->secmark) {
+			secid_expand(&marks, skb->secmark);
+			marks.common = 0;
+		}
+		marks.smack = skp->smk_secid;
+		secid_combine(&marks, __func__);
+		skb->secmark = marks.common;
 	}
 
 	return NF_ACCEPT;
