@@ -106,7 +106,7 @@ struct netport_security_struct {
 };
 
 struct sk_security_struct {
-#ifdef CONFIG_NETLABEL
+#ifdef CONFIG_SECURITY_SELINUX_NETLABEL
 	enum {				/* NetLabel state */
 		NLBL_UNSET = 0,
 		NLBL_REQUIRE,

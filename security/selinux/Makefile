@@ -11,7 +11,7 @@ selinux-y := avc.o hooks.o selinuxfs.o netlink.o nlmsgtab.o netif.o \
 
 selinux-$(CONFIG_SECURITY_NETWORK_XFRM) += xfrm.o
 
-selinux-$(CONFIG_NETLABEL) += netlabel.o
+selinux-$(CONFIG_SECURITY_SELINUX_NETLABEL) += netlabel.o
 
 ccflags-y := -I$(srctree)/security/selinux -I$(srctree)/security/selinux/include
 

@@ -213,7 +213,7 @@ int security_fs_use(struct super_block *sb);
 int security_genfs_sid(const char *fstype, char *name, u16 sclass,
 	u32 *sid);
 
-#ifdef CONFIG_NETLABEL
+#ifdef CONFIG_SECURITY_SELINUX_NETLABEL
 int security_netlbl_secattr_to_sid(struct netlbl_lsm_secattr *secattr,
 				   u32 *sid);
 
@@ -232,7 +232,7 @@ static inline int security_netlbl_sid_to_secattr(u32 sid,
 {
 	return -ENOENT;
 }
-#endif /* CONFIG_NETLABEL */
+#endif /* CONFIG_SECURITY_SELINUX_NETLABEL */
 
 const char *security_get_initial_sid_context(u32 sid);
 

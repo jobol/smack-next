@@ -130,7 +130,7 @@ void ebitmap_destroy(struct ebitmap *e);
 int ebitmap_read(struct ebitmap *e, void *fp);
 int ebitmap_write(struct ebitmap *e, void *fp);
 
-#ifdef CONFIG_NETLABEL
+#ifdef CONFIG_SECURITY_SELINUX_NETLABEL
 int ebitmap_netlbl_export(struct ebitmap *ebmap,
 			  struct netlbl_lsm_catmap **catmap);
 int ebitmap_netlbl_import(struct ebitmap *ebmap,

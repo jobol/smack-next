@@ -37,7 +37,7 @@
 #include "avc.h"
 #include "objsec.h"
 
-#ifdef CONFIG_NETLABEL
+#ifdef CONFIG_SECURITY_SELINUX_NETLABEL
 void selinux_netlbl_cache_invalidate(void);
 
 void selinux_netlbl_err(struct sk_buff *skb, u16 family, int error,
@@ -146,6 +146,6 @@ static inline int selinux_netlbl_socket_connect(struct sock *sk,
 {
 	return 0;
 }
-#endif /* CONFIG_NETLABEL */
+#endif /* CONFIG_SECURITY_SELINUX_NETLABEL */
 
 #endif

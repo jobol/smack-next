@@ -565,7 +565,7 @@ int mls_compute_sid(struct context *scontext,
 	return -EINVAL;
 }
 
-#ifdef CONFIG_NETLABEL
+#ifdef CONFIG_SECURITY_SELINUX_NETLABEL
 /**
  * mls_export_netlbl_lvl - Export the MLS sensitivity levels to NetLabel
  * @context: the security context
@@ -665,4 +665,4 @@ import_netlbl_cat_failure:
 	ebitmap_destroy(&context->range.level[0].cat);
 	return rc;
 }
-#endif /* CONFIG_NETLABEL */
+#endif /* CONFIG_SECURITY_SELINUX_NETLABEL */

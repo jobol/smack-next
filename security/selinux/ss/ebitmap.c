@@ -74,7 +74,7 @@ int ebitmap_cpy(struct ebitmap *dst, struct ebitmap *src)
 	return 0;
 }
 
-#ifdef CONFIG_NETLABEL
+#ifdef CONFIG_SECURITY_SELINUX_NETLABEL
 /**
  * ebitmap_netlbl_export - Export an ebitmap into a NetLabel category bitmap
  * @ebmap: the ebitmap to export
@@ -188,7 +188,7 @@ netlbl_import_failure:
 	ebitmap_destroy(ebmap);
 	return -ENOMEM;
 }
-#endif /* CONFIG_NETLABEL */
+#endif /* CONFIG_SECURITY_SELINUX_NETLABEL */
 
 /*
  * Check to see if all the bits set in e2 are also set in e1. Optionally,

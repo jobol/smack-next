@@ -55,7 +55,7 @@ int mls_compute_sid(struct context *scontext,
 int mls_setup_user_range(struct context *fromcon, struct user_datum *user,
 			 struct context *usercon);
 
-#ifdef CONFIG_NETLABEL
+#ifdef CONFIG_SECURITY_SELINUX_NETLABEL
 void mls_export_netlbl_lvl(struct context *context,
 			   struct netlbl_lsm_secattr *secattr);
 void mls_import_netlbl_lvl(struct context *context,

@@ -3266,7 +3266,7 @@ static int __init aurule_init(void)
 }
 __initcall(aurule_init);
 
-#ifdef CONFIG_NETLABEL
+#ifdef CONFIG_SECURITY_SELINUX_NETLABEL
 /**
  * security_netlbl_cache_add - Add an entry to the NetLabel cache
  * @secattr: the NetLabel packet security attributes
@@ -3409,7 +3409,7 @@ out:
 	read_unlock(&policy_rwlock);
 	return rc;
 }
-#endif /* CONFIG_NETLABEL */
+#endif /* CONFIG_SECURITY_SELINUX_NETLABEL */
 
 /**
  * security_read_policy - read the policy.

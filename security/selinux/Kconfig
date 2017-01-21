@@ -93,3 +93,15 @@ config SECURITY_SELINUX_CHECKREQPROT_VALUE
 	  via /selinux/checkreqprot if authorized by policy.
 
 	  If you are unsure how to answer this question, answer 0.
+
+config SECURITY_SELINUX_NETLABEL
+	bool "NSA SELinux labeled networking support"
+	depends on SECURITY_SELINUX
+	depends on NETLABEL
+	default y
+	help
+	  This option enables SELinux to use the netlabel subsystem
+	  for labeling IPv4 packets with CIPSO and IPv6 packets with
+	  CALYPSO.
+
+	  If you are unsure how to answer this question, answer Y.
