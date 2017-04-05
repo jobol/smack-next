@@ -28,6 +28,7 @@
 #include <linux/msg.h>
 #include <net/flow.h>
 #include <net/sock.h>
+#include <net/netlabel.h>
 
 #define MAX_LSM_EVM_XATTR	2
 
@@ -2134,7 +2135,27 @@ int security_socket_accept(struct socket *sock, struct socket *newsock)
 
 int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
 {
-	return call_int_hook(socket_sendmsg, 0, sock, msg, size);
+	struct security_hook_list *hp;
+	int rc;
+	struct netlbl_lsm_secattr *pattrs = NULL;
+	struct netlbl_lsm_secattr *attrs = NULL;
+
+	list_for_each_entry(hp, &security_hook_heads.socket_sendmsg, list) {
+		rc = hp->hook.socket_sendmsg(sock, msg, size, &attrs);
+		if (rc)
+			return rc;
+		/*
+		 * Only do the check if the current module reports
+		 * an attribute, and there is something to compare it to.
+		 */
+		if (attrs) {
+			if (!pattrs)
+				pattrs = attrs;
+			else if (!netlbl_secattr_equal(pattrs, attrs))
+				return -EACCES;
+		}
+	}
+	return 0;
 }
 
 int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,

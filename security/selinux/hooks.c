@@ -4437,8 +4437,13 @@ static int selinux_socket_accept(struct socket *sock, struct socket *newsock)
 }
 
 static int selinux_socket_sendmsg(struct socket *sock, struct msghdr *msg,
-				  int size)
+				  int size, struct netlbl_lsm_secattr **attrs)
 {
+#ifdef CONFIG_NETLABEL
+	struct sk_security_struct *sksec = selinux_sock(sock->sk);
+
+	*attrs = sksec->nlbl_secattr;
+#endif
 	return sock_has_perm(sock->sk, SOCKET__WRITE);
 }
 

@@ -499,11 +499,12 @@ static int tomoyo_socket_bind(struct socket *sock, struct sockaddr *addr,
  * @sock: Pointer to "struct socket".
  * @msg:  Pointer to "struct msghdr".
  * @size: Size of message.
+ * @attrs: unused
  *
  * Returns 0 on success, negative value otherwise.
  */
 static int tomoyo_socket_sendmsg(struct socket *sock, struct msghdr *msg,
-				 int size)
+				 int size, struct netlbl_lsm_secattr **attrs)
 {
 	return tomoyo_socket_sendmsg_permission(sock, msg, size);
 }

@@ -3634,7 +3634,7 @@ static int smack_unix_may_send(struct socket *sock, struct socket *other)
  * For IPv6 this is a check against the label of the port.
  */
 static int smack_socket_sendmsg(struct socket *sock, struct msghdr *msg,
-				int size)
+				int size, struct netlbl_lsm_secattr **attrs)
 {
 	struct sockaddr_in *sip = (struct sockaddr_in *) msg->msg_name;
 #if IS_ENABLED(CONFIG_IPV6)
@@ -3646,6 +3646,7 @@ static int smack_socket_sendmsg(struct socket *sock, struct msghdr *msg,
 #endif
 	int rc = 0;
 
+	*attrs = NULL;
 	/*
 	 * Perfectly reasonable for this to be NULL
 	 */
@@ -3655,6 +3656,7 @@ static int smack_socket_sendmsg(struct socket *sock, struct msghdr *msg,
 	switch (sock->sk->sk_family) {
 	case AF_INET:
 		rc = smack_netlabel_send(sock->sk, sip);
+		*attrs = &ssp->smk_out->smk_netlabel;
 		break;
 	case AF_INET6:
 #ifdef SMACK_IPV6_SECMARK_LABELING

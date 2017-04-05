@@ -28,6 +28,8 @@
 #include <linux/init.h>
 #include <linux/rculist.h>
 
+struct netlbl_lsm_secattr;
+
 /**
  * Security hooks for program execution operations.
  *
@@ -789,6 +791,7 @@
  *	@sock contains the socket structure.
  *	@msg contains the message to be transmitted.
  *	@size contains the size of message.
+ *	@attrs points to the network attributes on return.
  *	Return 0 if permission is granted.
  * @socket_recvmsg:
  *	Check permission before receiving a message from a socket.
@@ -1584,7 +1587,7 @@ union security_list_options {
 	int (*socket_listen)(struct socket *sock, int backlog);
 	int (*socket_accept)(struct socket *sock, struct socket *newsock);
 	int (*socket_sendmsg)(struct socket *sock, struct msghdr *msg,
-				int size);
+				int size, struct netlbl_lsm_secattr **attrs);
 	int (*socket_recvmsg)(struct socket *sock, struct msghdr *msg,
 				int size, int flags);
 	int (*socket_getsockname)(struct socket *sock);
