@@ -2269,7 +2269,6 @@ static void smack_sk_free_security(struct sock *sk)
 		}
 		rcu_read_unlock();
 	}
-	kfree(sk->sk_security);
 }
 #endif
 
