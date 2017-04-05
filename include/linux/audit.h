@@ -114,6 +114,7 @@ extern int audit_classify_compat_syscall(int abi, unsigned syscall);
 #define AUDIT_TTY_LOG_PASSWD	BIT(1)
 
 struct filename;
+struct secids;
 
 extern void audit_log_session_info(struct audit_buffer *ab);
 
@@ -150,9 +151,11 @@ extern void		    audit_log_link_denied(const char *operation,
 						  const struct path *link);
 extern void		    audit_log_lost(const char *message);
 #ifdef CONFIG_SECURITY
-extern void 		    audit_log_secctx(struct audit_buffer *ab, u32 secid);
+extern void		    audit_log_secctx(struct audit_buffer *ab,
+					     struct secids *secid);
 #else
-static inline void	    audit_log_secctx(struct audit_buffer *ab, u32 secid)
+static inline void	    audit_log_secctx(struct audit_buffer *ab,
+					     struct secids *secid)
 { }
 #endif
 
@@ -204,7 +207,8 @@ static inline void audit_log_key(struct audit_buffer *ab, char *key)
 static inline void audit_log_link_denied(const char *string,
 					 const struct path *link)
 { }
-static inline void audit_log_secctx(struct audit_buffer *ab, u32 secid)
+static inline void audit_log_secctx(struct audit_buffer *ab,
+				    struct secids *secid)
 { }
 static inline int audit_log_task_context(struct audit_buffer *ab)
 {
