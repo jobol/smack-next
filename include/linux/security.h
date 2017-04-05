@@ -68,6 +68,17 @@ struct audit_krule;
 struct user_namespace;
 struct timezone;
 
+/*
+ * Certain data elements need to be replicated when
+ * multiple security modules use them.
+ * This mechanism does not scale well beyond two modules.
+ */
+#if defined(CONFIG_SECURITY_STACKING) && \
+	defined(CONFIG_SECURITY_SELINUX) && \
+	defined(CONFIG_SECURITY_SMACK)
+#define SECURITY_EXTREME_STACKING
+#endif
+
 /* These functions are in security/commoncap.c */
 extern int cap_capable(const struct cred *cred, struct user_namespace *ns,
 		       int cap, int audit);
@@ -157,30 +168,64 @@ typedef int (*initxattrs) (struct inode *inode,
 
 #ifdef CONFIG_SECURITY
 
-struct security_mnt_opts {
+struct lsm_mnt_opts {
 	char **mnt_opts;
 	int *mnt_opts_flags;
 	int num_mnt_opts;
 };
 
+#ifdef SECURITY_EXTREME_STACKING
+
+struct security_mnt_opts {
+	struct lsm_mnt_opts	selinux;
+	struct lsm_mnt_opts	smack;
+};
+
+#else
+
+struct security_mnt_opts {
+	union {
+		struct lsm_mnt_opts	selinux;
+		struct lsm_mnt_opts	smack;
+	};
+};
+
+#endif
+
 static inline void security_init_mnt_opts(struct security_mnt_opts *opts)
 {
-	opts->mnt_opts = NULL;
-	opts->mnt_opts_flags = NULL;
-	opts->num_mnt_opts = 0;
+	opts->selinux.mnt_opts = NULL;
+	opts->selinux.mnt_opts_flags = NULL;
+	opts->selinux.num_mnt_opts = 0;
+#ifdef SECURITY_EXTREME_STACKING
+	opts->smack.mnt_opts = NULL;
+	opts->smack.mnt_opts_flags = NULL;
+	opts->smack.num_mnt_opts = 0;
+#endif
 }
 
 static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
 {
 	int i;
-	if (opts->mnt_opts)
-		for (i = 0; i < opts->num_mnt_opts; i++)
-			kfree(opts->mnt_opts[i]);
-	kfree(opts->mnt_opts);
-	opts->mnt_opts = NULL;
-	kfree(opts->mnt_opts_flags);
-	opts->mnt_opts_flags = NULL;
-	opts->num_mnt_opts = 0;
+
+	if (opts->selinux.mnt_opts)
+		for (i = 0; i < opts->selinux.num_mnt_opts; i++)
+			kfree(opts->selinux.mnt_opts[i]);
+	kfree(opts->selinux.mnt_opts);
+	opts->selinux.mnt_opts = NULL;
+	kfree(opts->selinux.mnt_opts_flags);
+	opts->selinux.mnt_opts_flags = NULL;
+	opts->selinux.num_mnt_opts = 0;
+#ifdef SECURITY_EXTREME_STACKING
+	if (opts->smack.mnt_opts)
+		for (i = 0; i < opts->smack.num_mnt_opts; i++)
+			kfree(opts->smack.mnt_opts[i]);
+	kfree(opts->smack.mnt_opts);
+	opts->smack.mnt_opts = NULL;
+	kfree(opts->smack.mnt_opts_flags);
+	opts->smack.mnt_opts_flags = NULL;
+	opts->smack.num_mnt_opts = 0;
+#endif
 }
 
 /* prototypes */
