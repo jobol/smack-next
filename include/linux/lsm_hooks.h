@@ -1907,6 +1907,7 @@ struct lsm_blob_sizes {
 	int	lbs_msg_msg;
 	int	lbs_sock;
 	int	lbs_superblock;
+	int	lbs_task;
 };
 
 /*
