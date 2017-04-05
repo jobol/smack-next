@@ -18,11 +18,12 @@
 #include <linux/cred.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
+#include <linux/lsm_hooks.h>
 
 #include "policy.h"
 #include "policy_ns.h"
 
-#define cred_ctx(X) ((X)->security)
+#define cred_ctx(X) apparmor_cred(X)
 #define current_ctx() cred_ctx(current_cred())
 
 /* struct aa_file_ctx - the AppArmor context the file was opened in
@@ -86,6 +87,10 @@ int aa_set_current_hat(struct aa_profile *profile, u64 token);
 int aa_restore_previous_profile(u64 cookie);
 struct aa_profile *aa_get_task_profile(struct task_struct *task);
 
+static inline struct aa_task_ctx *apparmor_cred(const struct cred *cred)
+{
+	return cred->security;
+}
 
 /**
  * aa_cred_profile - obtain cred's profiles
@@ -97,7 +102,7 @@ struct aa_profile *aa_get_task_profile(struct task_struct *task);
  */
 static inline struct aa_profile *aa_cred_profile(const struct cred *cred)
 {
-	struct aa_task_ctx *ctx = cred_ctx(cred);
+	struct aa_task_ctx *ctx = apparmor_cred(cred);
 
 	AA_BUG(!ctx || !ctx->profile);
 	return ctx->profile;
