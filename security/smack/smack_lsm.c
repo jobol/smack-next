@@ -3637,11 +3637,11 @@ static int smack_socket_sendmsg(struct socket *sock, struct msghdr *msg,
 				int size, struct netlbl_lsm_secattr **attrs)
 {
 	struct sockaddr_in *sip = (struct sockaddr_in *) msg->msg_name;
+	struct socket_smack *ssp = smack_sock(sock->sk);
 #if IS_ENABLED(CONFIG_IPV6)
 	struct sockaddr_in6 *sap = (struct sockaddr_in6 *) msg->msg_name;
 #endif
 #ifdef SMACK_IPV6_SECMARK_LABELING
-	struct socket_smack *ssp = smack_sock(sock->sk);
 	struct smack_known *rsp;
 #endif
 	int rc = 0;
