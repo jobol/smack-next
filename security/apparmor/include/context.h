@@ -25,6 +25,7 @@
 
 #define cred_ctx(X) apparmor_cred(X)
 #define current_ctx() cred_ctx(current_cred())
+#define file_ctx(X) apparmor_file(X)
 
 /* struct aa_file_ctx - the AppArmor context the file was opened in
  * @perms: the permission the file was opened with
@@ -90,6 +91,11 @@ struct aa_profile *aa_get_task_profile(struct task_struct *task);
 static inline struct aa_task_ctx *apparmor_cred(const struct cred *cred)
 {
 	return cred->security;
+}
+
+static inline struct aa_file_ctx *apparmor_file(const struct file *file)
+{
+	return file->f_security;
 }
 
 /**
