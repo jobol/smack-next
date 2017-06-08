@@ -5682,6 +5682,8 @@ static int selinux_getprocattr(struct task_struct *p,
 
 	if (!strcmp(name, "current"))
 		sid = __tsec->sid;
+	else if (!strcmp(name, "context"))
+		sid = __tsec->sid;
 	else if (!strcmp(name, "prev"))
 		sid = __tsec->osid;
 	else if (!strcmp(name, "exec"))
@@ -5701,7 +5703,19 @@ static int selinux_getprocattr(struct task_struct *p,
 	if (!sid)
 		return 0;
 
-	error = security_sid_to_context(sid, value, &len);
+	if (strcmp(name, "context")) {
+		error = security_sid_to_context(sid, value, &len);
+	} else {
+		char *vp;
+
+		error = security_sid_to_context(sid, &vp, &len);
+		if (!error) {
+			*value = kasprintf(GFP_KERNEL, "selinux='%s'", vp);
+			if (*value == NULL)
+				error = -ENOMEM;
+		}
+	}
+
 	if (error)
 		return error;
 	return len;
@@ -5735,6 +5749,9 @@ static int selinux_setprocattr(const char *name, void *value, size_t size)
 		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
 				     PROCESS__SETSOCKCREATE, NULL);
 	else if (!strcmp(name, "current"))
+		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
+				     PROCESS__SETCURRENT, NULL);
+	else if (!strcmp(name, "context"))
 		error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,
 				     PROCESS__SETCURRENT, NULL);
 	else
@@ -5797,7 +5814,7 @@ static int selinux_setprocattr(const char *name, void *value, size_t size)
 		tsec->keycreate_sid = sid;
 	} else if (!strcmp(name, "sockcreate")) {
 		tsec->sockcreate_sid = sid;
-	} else if (!strcmp(name, "current")) {
+	} else if (!strcmp(name, "current") || !strcmp(name, "context")) {
 		error = -EINVAL;
 		if (sid == 0)
 			goto abort_change;
@@ -6174,7 +6191,8 @@ static __init int selinux_init(void)
 {
 	static int finish;
 
-	if (!security_module_enable("selinux")) {
+	if (!security_module_enable("selinux",
+				IS_ENABLED(CONFIG_SECURITY_SELINUX_STACKED))) {
 		selinux_enabled = 0;
 		return 0;
 	}
