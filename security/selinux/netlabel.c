@@ -122,7 +122,7 @@ static struct netlbl_lsm_secattr *selinux_netlbl_sock_getattr(
 		return NULL;
 
 	if ((secattr->flags & NETLBL_SECATTR_SECID) &&
-	    (secattr->attr.secid == sid))
+	    (selinux_token_to_secid(secattr->attr.secid) == sid))
 		return secattr;
 
 	return NULL;
@@ -291,7 +291,8 @@ int selinux_netlbl_inet_conn_request(struct request_sock *req, u16 family)
 		return 0;
 
 	netlbl_secattr_init(&secattr);
-	rc = security_netlbl_sid_to_secattr(req->secid, &secattr);
+	rc = security_netlbl_sid_to_secattr(selinux_token_to_secid(req->secid),
+					    &secattr);
 	if (rc != 0)
 		goto inet_conn_request_return;
 	rc = netlbl_req_setattr(req, &secattr);

@@ -433,6 +433,16 @@ static inline struct smack_known **smack_key(const struct key *key)
 }
 #endif /* CONFIG_KEYS */
 
+static inline u32 smack_from_token(u32 token)
+{
+	return lsm_token_get_secid(token, smack_secids_index);
+}
+
+static inline u32 smack_to_token(u32 token, u32 secid)
+{
+	return lsm_token_set_secid(token, secid, smack_secids_index);
+}
+
 /*
  * Is the directory transmuting?
  */

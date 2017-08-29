@@ -30,7 +30,9 @@ struct token_entry {
 #define TOKEN_AGE_LIMIT (MAX_INT >> 2)
 #define TOKEN_LIMIT 0x20000000
 #define TOKEN_SET_SIZE 200
+#ifdef CONFIG_SECURITY_LSM_DEBUG
 #define TOKEN_BIT 0x80000000
+#endif
 int token_used;
 u32 token_next;
 struct lsm_secids null_secids;
@@ -41,7 +43,8 @@ static void report_token(const char *msg, const struct token_entry *te)
 {
 	int i;
 
-	pr_info("LSM: %s token=%08x %u,%u,%u,%u,%u,%u,%u,%u\n", msg, te->token,
+	pr_info("LSM: %s token=%08x %u,%u,%u,%u,%u,%u,%u,%u\n",
+		msg, te->token,
 		te->secids.secid[0], te->secids.secid[1], te->secids.secid[2],
 		te->secids.secid[3], te->secids.secid[4], te->secids.secid[5],
 		te->secids.secid[6], te->secids.secid[7]);
@@ -70,7 +73,11 @@ static u32 next_token(void)
 		pr_info("LSM: Security token overflow - safe reset\n");
 		token_next = 0;
 	}
+#ifdef CONFIG_SECURITY_LSM_DEBUG
 	return ++token_next | TOKEN_BIT;
+#else
+	return ++token_next;
+#endif
 }
 
 u32 lsm_secids_to_token(const struct lsm_secids *secids)
@@ -80,18 +87,23 @@ u32 lsm_secids_to_token(const struct lsm_secids *secids)
 	int old;
 
 #ifdef CONFIG_SECURITY_LSM_DEBUG
-	for (i = 0; i < LSM_MAX_MAJOR; i++)
+	for (i = 0; i < LSM_MAX_MAJOR; i++) {
+		WARN_ON_ONCE(secids->secid[i] & TOKEN_BIT);
 		if (secids->secid[i] & TOKEN_BIT)
 			pr_info("LSM: %s secid[%d]=%08x has token bit\n",
 				__func__, i, secids->secid[i]);
+	}
 #endif
-
 	/*
 	 * If none of the secids are set whoever sent this here
 	 * was thinking "0".
 	 */
 	if (!memcmp(secids, &null_secids, sizeof(*secids)))
+#ifdef CONFIG_SECURITY_LSM_DEBUG
+		return TOKEN_BIT;
+#else
 		return 0;
+#endif
 
 	for (i = 0; i < TOKEN_SET_SIZE; i++) {
 		if (token_set[i].token == 0)
@@ -122,19 +134,12 @@ u32 lsm_secids_to_token(const struct lsm_secids *secids)
 void lsm_token_to_secids(const u32 token, struct lsm_secids *secids)
 {
 	int i;
-	struct lsm_secids fudge;
 
-	if (token) {
-		if (!(token & TOKEN_BIT)) {
 #ifdef CONFIG_SECURITY_LSM_DEBUG
-			pr_info("LSM: %s token=%08x has no token bit\n",
-				__func__, token);
+	if ((token & TOKEN_BIT) && token != TOKEN_BIT) {
+#else
+	if (token) {
 #endif
-			for (i = 0; i < LSM_MAX_MAJOR; i++)
-				fudge.secid[i] = token;
-			*secids = fudge;
-			return;
-		}
 		for (i = 0; i < TOKEN_SET_SIZE; i++) {
 			if (token_set[i].token == 0)
 				break;
@@ -145,13 +150,18 @@ void lsm_token_to_secids(const u32 token, struct lsm_secids *secids)
 			}
 		}
 #ifdef CONFIG_SECURITY_LSM_DEBUG
-	pr_info("LSM: %s token=%u was not found\n", __func__, token);
+		pr_info("LSM: %s token=%08x was not found\n", __func__, token);
 #endif
 	}
+#ifdef CONFIG_SECURITY_LSM_DEBUG
+	if (token && !(token & TOKEN_BIT))
+		pr_info("LSM: %s token=%08x has no token bit\n",
+			__func__, token);
+#endif
 	*secids = null_secids;
 }
 
-u32 lsm_token_to_module_secid(const u32 token, int lsm)
+u32 lsm_token_get_secid(const u32 token, int lsm)
 {
 	struct lsm_secids secids;
 
@@ -162,4 +172,27 @@ u32 lsm_token_to_module_secid(const u32 token, int lsm)
 void lsm_secids_init(struct lsm_secids *secids)
 {
 	*secids = null_secids;
+}
+
+u32 lsm_token_set_secid(const u32 token, u32 lsecid, int lsm)
+{
+	struct lsm_secids secids;
+
+#ifdef CONFIG_SECURITY_LSM_DEBUG
+	if (!(token & TOKEN_BIT)) {
+		if (token)
+			pr_info("LSM: %s token=%08x has no token bit\n",
+				__func__, token);
+#else
+	if (!token) {
+#endif
+		lsm_secids_init(&secids);
+	} else {
+		lsm_token_to_secids(token, &secids);
+		if (secids.secid[lsm] == lsecid)
+			return token;
+	}
+
+	secids.secid[lsm] = lsecid;
+	return lsm_secids_to_token(&secids);
 }

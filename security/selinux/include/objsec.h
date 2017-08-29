@@ -231,4 +231,17 @@ static inline struct sk_security_struct *selinux_sock(const struct sock *sock)
 #endif
 }
 
+extern int selinux_secids_index;
+
+static inline u32 selinux_token_to_secid(u32 token)
+{
+	return lsm_token_get_secid(token, selinux_secids_index);
+}
+
+static inline u32 selinux_token_from_secid(u32 token, u32 secid)
+{
+	return lsm_token_set_secid(token, secid, selinux_secids_index);
+}
+
+
 #endif /* _SELINUX_OBJSEC_H_ */

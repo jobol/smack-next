@@ -249,7 +249,11 @@ xattr_getsecurity(struct inode *inode, const char *name, void *value,
 	}
 	memcpy(value, buffer, len);
 out:
-	security_release_secctx(buffer, len);
+	/*
+	 * security_inode_getsecurity() does not put a secctx
+	 * into buffer, it puts an allocated string into buffer.
+	 */
+	kfree(buffer);
 out_noalloc:
 	return len;
 }

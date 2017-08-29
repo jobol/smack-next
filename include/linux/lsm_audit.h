@@ -94,7 +94,11 @@ struct common_audit_data {
 		struct lsm_ibendport_audit *ibendport;
 	} u;
 	/* this union contains LSM specific data */
+#ifdef CONFIG_SECURITY_STACKING
+	struct {
+#else
 	union {
+#endif
 #ifdef CONFIG_SECURITY_SMACK
 		struct smack_audit_data *smack_audit_data;
 #endif

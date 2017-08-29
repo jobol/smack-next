@@ -23,19 +23,6 @@
 
 #if IS_ENABLED(CONFIG_IPV6)
 
-/*
- * Reinvestigate this soon?
- *
- */
-static u32 smack_to_secmark(u32 secid)
-{
-	struct lsm_secids secids;
-
-	lsm_secids_init(&secids);
-	secids.secid[smack_secids_index] = secid;
-	return lsm_secids_to_token(&secids);
-}
-
 static unsigned int smack_ipv6_output(void *priv,
 					struct sk_buff *skb,
 					const struct nf_hook_state *state)
@@ -47,7 +34,7 @@ static unsigned int smack_ipv6_output(void *priv,
 	if (sk && smack_sock(sk)) {
 		ssp = smack_sock(sk);
 		skp = ssp->smk_out;
-		skb->secmark = smack_to_secmark(skp->smk_secid);
+		skb->secmark = smack_to_token(skb->secmark, skp->smk_secid);
 	}
 
 	return NF_ACCEPT;
@@ -65,7 +52,7 @@ static unsigned int smack_ipv4_output(void *priv,
 	if (sk && smack_sock(sk)) {
 		ssp = smack_sock(sk);
 		skp = ssp->smk_out;
-		skb->secmark = smack_to_secmark(skp->smk_secid);
+		skb->secmark = smack_to_token(skb->secmark, skp->smk_secid);
 	}
 
 	return NF_ACCEPT;

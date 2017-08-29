@@ -1429,7 +1429,7 @@ static int smack_inode_removexattr(struct dentry *dentry, const char *name)
  * @inode: the object
  * @name: attribute name
  * @buffer: where to put the result
- * @alloc: unused
+ * @alloc: requires a buffer be allocated
  *
  * Returns the size of the attribute or an error code
  */
@@ -1442,43 +1442,39 @@ static int smack_inode_getsecurity(struct inode *inode,
 	struct super_block *sbp;
 	struct inode *ip = (struct inode *)inode;
 	struct smack_known *isp;
-	int ilen;
-	int rc = 0;
 
-	if (strcmp(name, XATTR_SMACK_SUFFIX) == 0) {
+	if (strcmp(name, XATTR_SMACK_SUFFIX) == 0)
 		isp = smk_of_inode(inode);
-		ilen = strlen(isp->smk_known);
-		*buffer = isp->smk_known;
-		return ilen;
+	else {
+		/*
+		 * The rest of the Smack xattrs are only on sockets.
+		 */
+		sbp = ip->i_sb;
+		if (sbp->s_magic != SOCKFS_MAGIC)
+			return -EOPNOTSUPP;
+
+		sock = SOCKET_I(ip);
+		if (sock == NULL || sock->sk == NULL)
+			return -EOPNOTSUPP;
+
+		ssp = smack_sock(sock->sk);
+
+		if (strcmp(name, XATTR_SMACK_IPIN) == 0)
+			isp = ssp->smk_in;
+		else if (strcmp(name, XATTR_SMACK_IPOUT) == 0)
+			isp = ssp->smk_out;
+		else
+			return -EOPNOTSUPP;
 	}
 
-	/*
-	 * The rest of the Smack xattrs are only on sockets.
-	 */
-	sbp = ip->i_sb;
-	if (sbp->s_magic != SOCKFS_MAGIC)
-		return -EOPNOTSUPP;
-
-	sock = SOCKET_I(ip);
-	if (sock == NULL || sock->sk == NULL)
-		return -EOPNOTSUPP;
-
-	ssp = smack_sock(sock->sk);
-
-	if (strcmp(name, XATTR_SMACK_IPIN) == 0)
-		isp = ssp->smk_in;
-	else if (strcmp(name, XATTR_SMACK_IPOUT) == 0)
-		isp = ssp->smk_out;
-	else
-		return -EOPNOTSUPP;
-
-	ilen = strlen(isp->smk_known);
-	if (rc == 0) {
+	if (alloc) {
+		*buffer = kstrdup(isp->smk_known, GFP_KERNEL);
+		if (*buffer == NULL)
+			return -ENOMEM;
+	} else
 		*buffer = isp->smk_known;
-		rc = ilen;
-	}
 
-	return rc;
+	return strlen(isp->smk_known);
 }
 
 
@@ -3734,7 +3730,7 @@ static struct smack_known *smack_from_secattr(struct netlbl_lsm_secattr *sap,
 		/*
 		 * Looks like a fallback, which gives us a secid.
 		 */
-		return smack_from_secid(sap->attr.secid);
+		return smack_from_secid(smack_from_token(sap->attr.secid));
 	/*
 	 * Without guidance regarding the smack value
 	 * for the packet fall back on the network
@@ -3792,13 +3788,6 @@ static int smk_skb_to_addr_ipv6(struct sk_buff *skb, struct sockaddr_in6 *sip)
 }
 #endif /* CONFIG_IPV6 */
 
-#ifdef CONFIG_SECURITY_SMACK_NETFILTER
-static u32 smk_of_secmark(u32 secmark)
-{
-	return lsm_token_to_module_secid(secmark, smack_secids_index);
-}
-#endif
-
 /**
  * smack_socket_sock_rcv_skb - Smack packet delivery access check
  * @sk: socket
@@ -3830,7 +3819,7 @@ static int smack_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
 		 * The secmark is assumed to reflect policy better.
 		 */
 		if (skb && skb->secmark != 0) {
-			skp = smack_from_secid(smk_of_secmark(skb->secmark));
+			skp = smack_from_secid(smack_from_token(skb->secmark));
 			goto access_check;
 		}
 #endif /* CONFIG_SECURITY_SMACK_NETFILTER */
@@ -3875,7 +3864,7 @@ access_check:
 			break;
 #ifdef SMACK_IPV6_SECMARK_LABELING
 		if (skb && skb->secmark != 0)
-			skp = smack_from_secid(smk_of_secmark(skb->secmark));
+			skp = smack_from_secid(smack_from_token(skb->secmark));
 		else
 			skp = smack_ipv6host_label(&sadd);
 		if (skp == NULL)
@@ -3973,7 +3962,7 @@ static int smack_socket_getpeersec_dgram(struct socket *sock,
 		break;
 	case PF_INET:
 #ifdef CONFIG_SECURITY_SMACK_NETFILTER
-		s = smk_of_secmark(skb->secmark);
+		s = smack_from_token(skb->secmark);
 		if (s != 0)
 			break;
 #endif
@@ -3992,7 +3981,7 @@ static int smack_socket_getpeersec_dgram(struct socket *sock,
 		break;
 	case PF_INET6:
 #ifdef SMACK_IPV6_SECMARK_LABELING
-		s = smk_of_secmark(skb->secmark);
+		s = smack_from_token(skb->secmark);
 #endif
 		break;
 	}
@@ -4071,7 +4060,7 @@ static int smack_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 	 * The secmark is assumed to reflect policy better.
 	 */
 	if (skb && skb->secmark != 0) {
-		skp = smack_from_secid(smk_of_secmark(skb->secmark));
+		skp = smack_from_secid(smack_from_token(skb->secmark));
 		goto access_check;
 	}
 #endif /* CONFIG_SECURITY_SMACK_NETFILTER */
@@ -4107,7 +4096,7 @@ access_check:
 	 * Save the peer's label in the request_sock so we can later setup
 	 * smk_packet in the child socket so that SO_PEERCRED can report it.
 	 */
-	req->peer_secid = skp->smk_secid;
+	req->peer_secid = smack_to_token(0, skp->smk_secid);
 
 	/*
 	 * We need to decide if we want to label the incoming connection here
@@ -4142,7 +4131,7 @@ static void smack_inet_csk_clone(struct sock *sk,
 	struct smack_known *skp;
 
 	if (req->peer_secid != 0) {
-		skp = smack_from_secid(req->peer_secid);
+		skp = smack_from_secid(smack_from_token(req->peer_secid));
 		ssp->smk_packet = skp;
 	} else
 		ssp->smk_packet = NULL;

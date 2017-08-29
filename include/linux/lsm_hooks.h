@@ -1939,7 +1939,8 @@ struct lsm_secids {
 
 extern u32 lsm_secids_to_token(const struct lsm_secids *secids);
 extern void lsm_token_to_secids(const u32 token, struct lsm_secids *secids);
-extern u32 lsm_token_to_module_secid(const u32 token, int lsm);
+extern u32 lsm_token_get_secid(const u32 token, int lsm);
+extern u32 lsm_token_set_secid(const u32 token, u32 lsecid, int lsm);
 extern void lsm_secids_init(struct lsm_secids *secids);
 #else /* CONFIG_SECURITY_STACKING */
 struct lsm_secids {
@@ -1957,9 +1958,14 @@ static inline void lsm_token_to_secids(const u32 token,
 	secids->secid = token;
 }
 
-statis inline u32 lsm_token_to_module_secid(const u32 token, int lsm)
+static inline u32 lsm_token_get_secid(const u32 token, int lsm)
 {
 	return token;
+}
+
+static inline u32 lsm_token_set_secid(const u32 token, u32 lsecid, int lsm)
+{
+	return lsecid;
 }
 
 static inline void lsm_secids_init(struct lsm_secids *secids)

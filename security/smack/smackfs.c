@@ -1284,7 +1284,8 @@ static ssize_t smk_write_net4addr(struct file *file, const char __user *buf,
 	if (rc == 0 && skp != NULL)
 		rc = netlbl_cfg_unlbl_static_add(&init_net, NULL,
 			&snp->smk_host, &snp->smk_mask, PF_INET,
-			snp->smk_label->smk_secid, &audit_info);
+			smack_to_token(0, snp->smk_label->smk_secid),
+			&audit_info);
 
 	if (rc == 0)
 		rc = count;

@@ -101,7 +101,7 @@
 static atomic_t selinux_secmark_refcount = ATOMIC_INIT(0);
 
 /* Index into lsm_secids */
-static int selinux_secids_index;
+int selinux_secids_index;
 
 #ifdef CONFIG_SECURITY_SELINUX_DEVELOP
 int selinux_enforcing;
@@ -411,6 +411,7 @@ static int may_context_mount_inode_relabel(u32 sid,
 {
 	const struct task_security_struct *tsec = selinux_cred(cred);
 	int rc;
+
 	rc = avc_has_perm(tsec->sid, sbsec->sid, SECCLASS_FILESYSTEM,
 			  FILESYSTEM__RELABELFROM, NULL);
 	if (rc)
@@ -4613,11 +4614,6 @@ static int selinux_inet_sys_rcv_skb(struct net *ns, int ifindex,
 			    SECCLASS_NODE, NODE__RECVFROM, ad);
 }
 
-static u32 selinux_secmark_to_secid(u32 token)
-{
-	return lsm_token_to_module_secid(token, selinux_secids_index);
-}
-
 static int selinux_sock_rcv_skb_compat(struct sock *sk, struct sk_buff *skb,
 				       u16 family)
 {
@@ -4638,7 +4634,7 @@ static int selinux_sock_rcv_skb_compat(struct sock *sk, struct sk_buff *skb,
 
 	if (selinux_secmark_enabled()) {
 		err = avc_has_perm(sk_sid,
-				   selinux_secmark_to_secid(skb->secmark),
+				   selinux_token_to_secid(skb->secmark),
 				   SECCLASS_PACKET,
 				   PACKET__RECV, &ad);
 		if (err)
@@ -4714,7 +4710,7 @@ static int selinux_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
 
 	if (secmark_active) {
 		err = avc_has_perm(sk_sid,
-				   selinux_secmark_to_secid(skb->secmark),
+				   selinux_token_to_secid(skb->secmark),
 				   SECCLASS_PACKET,
 				   PACKET__RECV, &ad);
 		if (err)
@@ -4783,7 +4779,7 @@ static int selinux_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *
 
 out:
 	*secid = peer_secid;
-	if (peer_secid == SECSID_NULL)
+	if (*secid == SECSID_NULL)
 		return -EINVAL;
 	return 0;
 }
@@ -4857,8 +4853,8 @@ static int selinux_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 	err = selinux_conn_sid(sksec->sid, peersid, &connsid);
 	if (err)
 		return err;
-	req->secid = connsid;
-	req->peer_secid = peersid;
+	req->secid = selinux_token_from_secid(req->secid, connsid);
+	req->peer_secid = selinux_token_from_secid(req->peer_secid, peersid);
 
 	return selinux_netlbl_inet_conn_request(req, family);
 }
@@ -4868,8 +4864,10 @@ static void selinux_inet_csk_clone(struct sock *newsk,
 {
 	struct sk_security_struct *newsksec = selinux_sock(newsk);
 
-	newsksec->sid = req->secid;
-	newsksec->peer_sid = req->peer_secid;
+
+	newsksec->sid = selinux_token_to_secid(req->secid);
+	newsksec->peer_sid = selinux_token_to_secid(req->peer_secid);
+
 	/* NOTE: Ideally, we should also get the isec->sid for the
 	   new socket in sync, but we don't have the isec available yet.
 	   So we will wait until sock_graft to do it, by which
@@ -4916,7 +4914,7 @@ static void selinux_secmark_refcount_dec(void)
 static void selinux_req_classify_flow(const struct request_sock *req,
 				      u32 *fl_secid)
 {
-	*fl_secid = req->secid;
+	*fl_secid = selinux_token_to_secid(req->secid);
 }
 
 static int selinux_tun_dev_alloc_security(void **security)
@@ -5079,7 +5077,7 @@ static unsigned int selinux_ip_forward(struct sk_buff *skb,
 
 	if (secmark_active)
 		if (avc_has_perm(peer_sid,
-				 selinux_secmark_to_secid(skb->secmark),
+				 selinux_token_to_secid(skb->secmark),
 				 SECCLASS_PACKET, PACKET__FORWARD_IN, &ad))
 			return NF_DROP;
 
@@ -5192,7 +5190,7 @@ static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
 
 	if (selinux_secmark_enabled())
 		if (avc_has_perm(sksec->sid,
-				 selinux_secmark_to_secid(skb->secmark),
+				 selinux_token_to_secid(skb->secmark),
 				 SECCLASS_PACKET, PACKET__SEND, &ad))
 			return NF_DROP_ERR(-ECONNREFUSED);
 
@@ -5316,7 +5314,7 @@ static unsigned int selinux_ip_postroute(struct sk_buff *skb,
 
 	if (secmark_active)
 		if (avc_has_perm(peer_sid,
-				 selinux_secmark_to_secid(skb->secmark),
+				 selinux_token_to_secid(skb->secmark),
 				 SECCLASS_PACKET, secmark_perm, &ad))
 			return NF_DROP_ERR(-ECONNREFUSED);
 
@@ -5493,14 +5491,16 @@ static int selinux_msg_queue_msgsnd(struct msg_queue *msq, struct msg_msg *msg, 
 	/* Can this process write to the queue? */
 	rc = avc_has_perm(sid, isec->sid, SECCLASS_MSGQ,
 			  MSGQ__WRITE, &ad);
-	if (!rc)
+	if (!rc) {
 		/* Can this process send the message */
 		rc = avc_has_perm(sid, msec->sid, SECCLASS_MSG,
 				  MSG__SEND, &ad);
-	if (!rc)
+	}
+	if (!rc) {
 		/* Can the message be put in the queue? */
 		rc = avc_has_perm(msec->sid, isec->sid, SECCLASS_MSGQ,
 				  MSGQ__ENQUEUE, &ad);
+	}
 
 	return rc;
 }
@@ -5523,9 +5523,10 @@ static int selinux_msg_queue_msgrcv(struct msg_queue *msq, struct msg_msg *msg,
 
 	rc = avc_has_perm(sid, isec->sid,
 			  SECCLASS_MSGQ, MSGQ__READ, &ad);
-	if (!rc)
+	if (!rc) {
 		rc = avc_has_perm(sid, msec->sid,
 				  SECCLASS_MSG, MSG__RECEIVE, &ad);
+	}
 	return rc;
 }
 
