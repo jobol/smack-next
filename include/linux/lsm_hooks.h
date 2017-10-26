@@ -1624,7 +1624,7 @@ union security_list_options {
 	void (*secmark_refcount_inc)(void);
 	void (*secmark_refcount_dec)(void);
 	void (*req_classify_flow)(const struct request_sock *req,
-					struct flowi *fl);
+					u32 *fl_secid);
 	int (*tun_dev_alloc_security)(void **security);
 	void (*tun_dev_free_security)(void *security);
 	int (*tun_dev_create)(void);
@@ -1660,7 +1660,7 @@ union security_list_options {
 					u8 dir);
 	int (*xfrm_state_pol_flow_match)(struct xfrm_state *x,
 						struct xfrm_policy *xp,
-						const struct flowi *fl);
+						u32 fl_secid);
 	int (*xfrm_decode_session)(struct sk_buff *skb, u32 *secid, int ckall);
 #endif	/* CONFIG_SECURITY_NETWORK_XFRM */
 
@@ -1912,7 +1912,46 @@ struct security_hook_list {
 	struct list_head		*head;
 	union security_list_options	hook;
 	char				*lsm;
+	int				lsm_index;
 } __randomize_layout;
+
+/*
+ * The maximum number of major security modules.
+ * Used to avoid excessive memory management while
+ * mapping global and module specific secids.
+ *
+ * Currently SELinux, Smack, AppArmor, TOMOYO
+ * Oh, but Casey needs to come up with the right way
+ * to identify a "major" module, so use the total number
+ * of modules (including minor) for now.
+ * Minor: Capability, Yama, LoadPin
+ */
+#define	LSM_MAX_MAJOR	8
+
+#ifdef CONFIG_SECURITY_STACKING
+struct lsm_secids {
+	u32	secid[LSM_MAX_MAJOR];
+};
+
+extern u32 lsm_secids_to_token(const struct lsm_secids *secids);
+extern void lsm_token_to_secids(const u32 token, struct lsm_secids *secids);
+extern u32 lsm_token_get_secid(const u32 token, int lsm);
+extern u32 lsm_token_set_secid(const u32 token, u32 lsecid, int lsm);
+extern u32 lsm_token_to_module_secid(const u32 token, int lsm);
+extern void lsm_secids_init(struct lsm_secids *secids);
+#else /* CONFIG_SECURITY_STACKING */
+
+static inline u32 lsm_token_get_secid(const u32 token, int lsm)
+{
+	return token;
+}
+
+static inline u32 lsm_token_set_secid(const u32 token, u32 lsecid, int lsm)
+{
+	return lsecid;
+}
+
+#endif /* CONFIG_SECURITY_STACKING */
 
 /*
  * Security blob size or offset data.

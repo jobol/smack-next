@@ -328,6 +328,7 @@ void smk_destroy_label_list(struct list_head *list);
  * Shared data.
  */
 extern int smack_enabled;
+extern int smack_secids_index;
 extern int smack_cipso_direct;
 extern int smack_cipso_mapped;
 extern struct smack_known *smack_net_ambient;
@@ -431,6 +432,16 @@ static inline struct smack_known **smack_key(const struct key *key)
 #endif
 }
 #endif /* CONFIG_KEYS */
+
+static inline u32 smack_token_to_secid(u32 token)
+{
+	return lsm_token_get_secid(token, smack_secids_index);
+}
+
+static inline u32 smack_to_token(u32 token, u32 secid)
+{
+	return lsm_token_set_secid(token, secid, smack_secids_index);
+}
 
 /*
  * Is the directory transmuting?

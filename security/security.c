@@ -213,6 +213,11 @@ bool __init security_module_enable(const char *lsm, const bool stacked)
 #endif
 }
 
+/*
+ * Keep the order of major modules for mapping secids.
+ */
+static int lsm_next_major;
+
 /**
  * security_add_hooks - Add a modules hooks to the hook lists.
  * @hooks: the hooks to add
@@ -225,9 +230,14 @@ void __init security_add_hooks(struct security_hook_list *hooks, int count,
 				char *lsm)
 {
 	int i;
+	int lsm_index = lsm_next_major++;
 
+#ifdef CONFIG_SECURITY_LSM_DEBUG
+	pr_info("LSM: Security module %s gets index %d\n", lsm, lsm_index);
+#endif
 	for (i = 0; i < count; i++) {
 		hooks[i].lsm = lsm;
+		hooks[i].lsm_index = lsm_index;
 		list_add_tail_rcu(&hooks[i].list, hooks[i].head);
 	}
 	if (lsm_append(lsm, &lsm_names) < 0)
@@ -1217,7 +1227,19 @@ EXPORT_SYMBOL(security_inode_listsecurity);
 
 void security_inode_getsecid(struct inode *inode, u32 *secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+
+	lsm_secids_init(&secids);
+
+	list_for_each_entry(hp, &security_hook_heads.inode_getsecid, list)
+		hp->hook.inode_getsecid(inode, &secids.secid[hp->lsm_index]);
+
+	*secid = lsm_secids_to_token(&secids);
+#else
 	call_void_hook(inode_getsecid, inode, secid);
+#endif
 }
 
 int security_inode_copy_up(struct dentry *src, struct cred **new)
@@ -1415,7 +1437,28 @@ void security_transfer_creds(struct cred *new, const struct cred *old)
 
 int security_kernel_act_as(struct cred *new, u32 secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = 0;
+
+	lsm_token_to_secids(secid, &secids);
+
+	list_for_each_entry(hp, &security_hook_heads.kernel_act_as, list) {
+		/*
+		 * Not all of the security modules may have gotten
+		 * a secid when this token was created, so ignore 0.
+		 */
+		if (secids.secid[hp->lsm_index] == 0)
+			continue;
+		rc = hp->hook.kernel_act_as(new, secids.secid[hp->lsm_index]);
+		if (rc)
+			break;
+	}
+	return rc;
+#else
 	return call_int_hook(kernel_act_as, 0, new, secid);
+#endif
 }
 
 int security_kernel_create_files_as(struct cred *new, struct inode *inode)
@@ -1474,8 +1517,20 @@ int security_task_getsid(struct task_struct *p)
 
 void security_task_getsecid(struct task_struct *p, u32 *secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+
+	lsm_secids_init(&secids);
+
+	list_for_each_entry(hp, &security_hook_heads.task_getsecid, list)
+		hp->hook.task_getsecid(p, &secids.secid[hp->lsm_index]);
+
+	*secid = lsm_secids_to_token(&secids);
+#else
 	*secid = 0;
 	call_void_hook(task_getsecid, p, secid);
+#endif
 }
 EXPORT_SYMBOL(security_task_getsecid);
 
@@ -1524,7 +1579,23 @@ int security_task_movememory(struct task_struct *p)
 int security_task_kill(struct task_struct *p, struct siginfo *info,
 			int sig, u32 secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = 0;
+
+	lsm_token_to_secids(secid, &secids);
+
+	list_for_each_entry(hp, &security_hook_heads.task_kill, list) {
+		rc = hp->hook.task_kill(p, info, sig,
+					secids.secid[hp->lsm_index]);
+		if (rc)
+			break;
+	}
+	return rc;
+#else
 	return call_int_hook(task_kill, 0, p, info, sig, secid);
+#endif
 }
 
 int security_task_prctl(int option, unsigned long arg2, unsigned long arg3,
@@ -1557,8 +1628,20 @@ int security_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
 
 void security_ipc_getsecid(struct kern_ipc_perm *ipcp, u32 *secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+
+	lsm_secids_init(&secids);
+
+	list_for_each_entry(hp, &security_hook_heads.ipc_getsecid, list)
+		hp->hook.ipc_getsecid(ipcp, &secids.secid[hp->lsm_index]);
+
+	*secid = lsm_secids_to_token(&secids);
+#else
 	*secid = 0;
 	call_void_hook(ipc_getsecid, ipcp, secid);
+#endif
 }
 
 int security_msg_msg_alloc(struct msg_msg *msg)
@@ -1731,15 +1814,52 @@ EXPORT_SYMBOL(security_ismaclabel);
 
 int security_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = -EOPNOTSUPP;
+
+	lsm_token_to_secids(secid, &secids);
+
+	/*
+	 * Return the first result regardless.
+	 */
+	list_for_each_entry(hp, &security_hook_heads.secid_to_secctx, list) {
+		rc = hp->hook.secid_to_secctx(secids.secid[hp->lsm_index],
+						secdata, seclen);
+		if (rc != -EOPNOTSUPP)
+			break;
+	}
+	return rc;
+#else
 	return call_int_hook(secid_to_secctx, -EOPNOTSUPP, secid, secdata,
 				seclen);
+#endif
 }
 EXPORT_SYMBOL(security_secid_to_secctx);
 
 int security_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = 0;
+
+	lsm_secids_init(&secids);
+
+	list_for_each_entry(hp, &security_hook_heads.secctx_to_secid, list) {
+		rc = hp->hook.secctx_to_secid(secdata, seclen,
+						&secids.secid[hp->lsm_index]);
+		if (rc)
+			break;
+	}
+
+	*secid = lsm_secids_to_token(&secids);
+	return rc;
+#else
 	*secid = 0;
 	return call_int_hook(secctx_to_secid, 0, secdata, seclen, secid);
+#endif
 }
 EXPORT_SYMBOL(security_secctx_to_secid);
 
@@ -1868,10 +1988,31 @@ int security_socket_getpeersec_stream(struct socket *sock, char __user *optval,
 				optval, optlen, len);
 }
 
-int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
+int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb,
+				     u32 *secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = -ENOPROTOOPT;
+
+	lsm_secids_init(&secids);
+
+	list_for_each_entry(hp, &security_hook_heads.socket_getpeersec_dgram,
+									list) {
+		rc = hp->hook.socket_getpeersec_dgram(sock, skb,
+						&secids.secid[hp->lsm_index]);
+		if (rc)
+			break;
+	}
+
+	if (!rc)
+		*secid = lsm_secids_to_token(&secids);
+	return rc;
+#else
 	return call_int_hook(socket_getpeersec_dgram, -ENOPROTOOPT, sock,
 			     skb, secid);
+#endif
 }
 EXPORT_SYMBOL(security_socket_getpeersec_dgram);
 
@@ -1899,13 +2040,38 @@ EXPORT_SYMBOL(security_sk_clone);
 
 void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+
+	lsm_secids_init(&secids);
+
+	list_for_each_entry(hp, &security_hook_heads.sk_getsecid, list)
+		hp->hook.sk_getsecid(sk, &secids.secid[hp->lsm_index]);
+
+	fl->flowi_secid = lsm_secids_to_token(&secids);
+#else
 	call_void_hook(sk_getsecid, sk, &fl->flowi_secid);
+#endif
 }
 EXPORT_SYMBOL(security_sk_classify_flow);
 
-void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+void security_req_classify_flow(const struct request_sock *req,
+				struct flowi *fl)
 {
-	call_void_hook(req_classify_flow, req, fl);
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+
+	lsm_secids_init(&secids);
+
+	list_for_each_entry(hp, &security_hook_heads.req_classify_flow, list)
+		hp->hook.req_classify_flow(req, &secids.secid[hp->lsm_index]);
+
+	fl->flowi_secid = lsm_secids_to_token(&secids);
+#else
+	call_void_hook(req_classify_flow, req, &fl->flowi_secid);
+#endif
 }
 EXPORT_SYMBOL(security_req_classify_flow);
 
@@ -1936,7 +2102,24 @@ void security_inet_conn_established(struct sock *sk,
 
 int security_secmark_relabel_packet(u32 secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = 0;
+
+	lsm_token_to_secids(secid, &secids);
+
+	list_for_each_entry(hp, &security_hook_heads.secmark_relabel_packet,
+									list) {
+		rc = hp->hook.secmark_relabel_packet(
+						secids.secid[hp->lsm_index]);
+		if (rc)
+			break;
+	}
+	return rc;
+#else
 	return call_int_hook(secmark_relabel_packet, 0, secid);
+#endif
 }
 EXPORT_SYMBOL(security_secmark_relabel_packet);
 
@@ -2054,7 +2237,24 @@ EXPORT_SYMBOL(security_xfrm_state_alloc);
 int security_xfrm_state_alloc_acquire(struct xfrm_state *x,
 				      struct xfrm_sec_ctx *polsec, u32 secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = 0;
+
+	lsm_token_to_secids(secid, &secids);
+
+	list_for_each_entry(hp, &security_hook_heads.xfrm_state_alloc_acquire,
+									list) {
+		rc = hp->hook.xfrm_state_alloc_acquire(x, polsec,
+						secids.secid[hp->lsm_index]);
+		if (rc)
+			break;
+	}
+	return rc;
+#else
 	return call_int_hook(xfrm_state_alloc_acquire, 0, x, polsec, secid);
+#endif
 }
 
 int security_xfrm_state_delete(struct xfrm_state *x)
@@ -2070,7 +2270,23 @@ void security_xfrm_state_free(struct xfrm_state *x)
 
 int security_xfrm_policy_lookup(struct xfrm_sec_ctx *ctx, u32 fl_secid, u8 dir)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = 0;
+
+	lsm_token_to_secids(fl_secid, &secids);
+
+	list_for_each_entry(hp, &security_hook_heads.xfrm_policy_lookup, list) {
+		rc = hp->hook.xfrm_policy_lookup(ctx,
+					secids.secid[hp->lsm_index], dir);
+		if (rc)
+			break;
+	}
+	return rc;
+#else
 	return call_int_hook(xfrm_policy_lookup, 0, ctx, fl_secid, dir);
+#endif
 }
 
 int security_xfrm_state_pol_flow_match(struct xfrm_state *x,
@@ -2078,6 +2294,9 @@ int security_xfrm_state_pol_flow_match(struct xfrm_state *x,
 				       const struct flowi *fl)
 {
 	struct security_hook_list *hp;
+#ifdef CONFIG_SECURITY_STACKING
+	struct lsm_secids secids;
+#endif
 	int rc = 1;
 
 	/*
@@ -2089,9 +2308,18 @@ int security_xfrm_state_pol_flow_match(struct xfrm_state *x,
 	 * For speed optimization, we explicitly break the loop rather than
 	 * using the macro
 	 */
+#ifdef CONFIG_SECURITY_STACKING
+	lsm_token_to_secids(fl->flowi_secid, &secids);
+#endif
+
 	list_for_each_entry(hp, &security_hook_heads.xfrm_state_pol_flow_match,
-				list) {
-		rc = hp->hook.xfrm_state_pol_flow_match(x, xp, fl);
+									list) {
+#ifdef CONFIG_SECURITY_STACKING
+		rc = hp->hook.xfrm_state_pol_flow_match(x, xp,
+				secids.secid[hp->lsm_index]);
+#else
+		rc = hp->hook.xfrm_state_pol_flow_match(x, xp, fl->flowi_secid);
+#endif
 		break;
 	}
 	return rc;
@@ -2099,15 +2327,51 @@ int security_xfrm_state_pol_flow_match(struct xfrm_state *x,
 
 int security_xfrm_decode_session(struct sk_buff *skb, u32 *secid)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = 0;
+
+	lsm_secids_init(&secids);
+
+	list_for_each_entry(hp, &security_hook_heads.xfrm_decode_session,
+									list) {
+		rc = hp->hook.xfrm_decode_session(skb,
+					&secids.secid[hp->lsm_index], 1);
+		if (rc)
+			break;
+	}
+	if (!rc)
+		*secid = lsm_secids_to_token(&secids);
+	return rc;
+#else
 	return call_int_hook(xfrm_decode_session, 0, skb, secid, 1);
+#endif
 }
 
 void security_skb_classify_flow(struct sk_buff *skb, struct flowi *fl)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = 0;
+
+	lsm_secids_init(&secids);
+
+	list_for_each_entry(hp, &security_hook_heads.xfrm_decode_session,
+									list) {
+		rc = hp->hook.xfrm_decode_session(skb,
+					&secids.secid[hp->lsm_index], 0);
+		if (rc)
+			break;
+	}
+	BUG_ON(rc);
+	fl->flowi_secid = lsm_secids_to_token(&secids);
+#else
 	int rc = call_int_hook(xfrm_decode_session, 0, skb, &fl->flowi_secid,
 				0);
-
 	BUG_ON(rc);
+#endif
 }
 EXPORT_SYMBOL(security_skb_classify_flow);
 
@@ -2166,7 +2430,23 @@ void security_audit_rule_free(void *lsmrule)
 int security_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule,
 			      struct audit_context *actx)
 {
+#ifdef CONFIG_SECURITY_STACKING
+	struct security_hook_list *hp;
+	struct lsm_secids secids;
+	int rc = 0;
+
+	lsm_token_to_secids(secid, &secids);
+
+	list_for_each_entry(hp, &security_hook_heads.audit_rule_match, list) {
+		rc = hp->hook.audit_rule_match(secids.secid[hp->lsm_index],
+						field, op, lsmrule, actx);
+		if (rc)
+			break;
+	}
+	return rc;
+#else
 	return call_int_hook(audit_rule_match, 0, secid, field, op, lsmrule,
 				actx);
+#endif
 }
 #endif /* CONFIG_AUDIT */

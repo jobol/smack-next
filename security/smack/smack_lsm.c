@@ -57,6 +57,7 @@ static LIST_HEAD(smk_ipv6_port_list);
 #endif
 static struct kmem_cache *smack_inode_cache;
 int smack_enabled;
+int smack_secids_index;
 
 static const match_table_t smk_mount_tokens = {
 	{Opt_fsdefault, SMK_FSDEFAULT "%s"},
@@ -3789,7 +3790,8 @@ static int smack_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
 		 * The secmark is assumed to reflect policy better.
 		 */
 		if (skb && skb->secmark != 0) {
-			skp = smack_from_secid(skb->secmark);
+			skp = smack_from_secid(smack_token_to_secid(
+							skb->secmark));
 			goto access_check;
 		}
 #endif /* CONFIG_SECURITY_SMACK_NETFILTER */
@@ -3834,7 +3836,8 @@ access_check:
 			break;
 #ifdef SMACK_IPV6_SECMARK_LABELING
 		if (skb && skb->secmark != 0)
-			skp = smack_from_secid(skb->secmark);
+			skp = smack_from_secid(smack_token_to_secid(
+							skb->secmark));
 		else
 			skp = smack_ipv6host_label(&sadd);
 		if (skp == NULL)
@@ -3932,7 +3935,7 @@ static int smack_socket_getpeersec_dgram(struct socket *sock,
 		break;
 	case PF_INET:
 #ifdef CONFIG_SECURITY_SMACK_NETFILTER
-		s = skb->secmark;
+		s = smack_token_to_secid(skb->secmark);
 		if (s != 0)
 			break;
 #endif
@@ -3951,7 +3954,7 @@ static int smack_socket_getpeersec_dgram(struct socket *sock,
 		break;
 	case PF_INET6:
 #ifdef SMACK_IPV6_SECMARK_LABELING
-		s = skb->secmark;
+		s = smack_token_to_secid(skb->secmark);
 #endif
 		break;
 	}
@@ -4030,7 +4033,7 @@ static int smack_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 	 * The secmark is assumed to reflect policy better.
 	 */
 	if (skb && skb->secmark != 0) {
-		skp = smack_from_secid(skb->secmark);
+		skp = smack_from_secid(smack_token_to_secid(skb->secmark));
 		goto access_check;
 	}
 #endif /* CONFIG_SECURITY_SMACK_NETFILTER */
@@ -4618,6 +4621,7 @@ static __init int smack_init(void)
 	 * Register with LSM
 	 */
 	security_add_hooks(smack_hooks, ARRAY_SIZE(smack_hooks), "smack");
+	smack_secids_index = smack_hooks[0].lsm_index;
 	smack_enabled = 1;
 
 	pr_info("Smack:  Initializing.\n");
