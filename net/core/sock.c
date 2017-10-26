@@ -849,6 +849,10 @@ set_rcvbuf:
 			clear_bit(SOCK_PASSCRED, &sock->flags);
 		break;
 
+	case SO_LSMSEC:
+		ret = security_socket_passed_lsm(sock, optval, optlen);
+		break;
+
 	case SO_TIMESTAMP:
 	case SO_TIMESTAMPNS:
 		if (valbool)  {

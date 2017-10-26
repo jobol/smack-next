@@ -56,7 +56,7 @@ static int checkentry_lsm(struct xt_secmark_target_info *info)
 	info->secctx[SECMARK_SECCTX_MAX - 1] = '\0';
 	info->secid = 0;
 
-	err = security_secctx_to_secid(info->secctx, strlen(info->secctx),
+	err = security_secctx_to_secid(NULL, info->secctx, strlen(info->secctx),
 				       &info->secid);
 	if (err) {
 		if (err == -EINVAL)

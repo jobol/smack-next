@@ -316,7 +316,12 @@ static int ctnetlink_dump_secctx(struct sk_buff *skb, const struct nf_conn *ct)
 	int len, ret;
 	char *secctx;
 
-	ret = security_secid_to_secctx(ct->secmark, &secctx, &len);
+	if (skb && skb->sk)
+		ret = security_secid_to_secctx(security_socket_lsm(skb->sk),
+					ct->secmark, &secctx, &len);
+	else
+		ret = security_secid_to_secctx(NULL, ct->secmark, &secctx,
+						&len);
 	if (ret)
 		return 0;
 
@@ -564,7 +569,7 @@ static inline int ctnetlink_secctx_size(const struct nf_conn *ct)
 #ifdef CONFIG_NF_CONNTRACK_SECMARK
 	int len, ret;
 
-	ret = security_secid_to_secctx(ct->secmark, NULL, &len);
+	ret = security_secid_to_secctx(NULL, ct->secmark, NULL, &len);
 	if (ret)
 		return 0;
 

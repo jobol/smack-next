@@ -1374,7 +1374,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 	case AUDIT_SIGNAL_INFO:
 		len = 0;
 		if (audit_sig_sid) {
-			err = security_secid_to_secctx(audit_sig_sid, &ctx, &len);
+			err = security_secid_to_secctx(NULL, audit_sig_sid, &ctx, &len);
 			if (err)
 				return err;
 		}
@@ -2107,7 +2107,7 @@ void audit_log_name(struct audit_context *context, struct audit_names *n,
 	if (n->osid != 0) {
 		char *ctx = NULL;
 		u32 len;
-		if (security_secid_to_secctx(
+		if (security_secid_to_secctx(NULL,
 			n->osid, &ctx, &len)) {
 			audit_log_format(ab, " osid=%u", n->osid);
 			if (call_panic)
@@ -2153,7 +2153,7 @@ int audit_log_task_context(struct audit_buffer *ab)
 	if (!sid)
 		return 0;
 
-	error = security_secid_to_secctx(sid, &ctx, &len);
+	error = security_secid_to_secctx(NULL, sid, &ctx, &len);
 	if (error) {
 		if (error != -EINVAL)
 			goto error_path;
@@ -2339,21 +2339,25 @@ void audit_log(struct audit_context *ctx, gfp_t gfp_mask, int type,
 
 #ifdef CONFIG_SECURITY
 /**
- * audit_log_secctx - Converts and logs SELinux context
+ * audit_log_secctx - Converts and logs security context
  * @ab: audit_buffer
  * @secid: security number
  *
  * This is a helper function that calls security_secid_to_secctx to convert
- * secid to secctx and then adds the (converted) SELinux context to the audit
+ * secid to secctx and then adds the (converted) security context to the audit
  * log by calling audit_log_format, thus also preventing leak of internal secid
  * to userspace. If secid cannot be converted audit_panic is called.
+ *
+ * Note: There is not sufficient information in the input to
+ * determine which security module the caller is interested in
+ * in the multiple security module case.
  */
 void audit_log_secctx(struct audit_buffer *ab, u32 secid)
 {
 	u32 len;
 	char *secctx;
 
-	if (security_secid_to_secctx(secid, &secctx, &len)) {
+	if (security_secid_to_secctx(NULL, secid, &secctx, &len)) {
 		audit_panic("Cannot convert secid to context");
 	} else {
 		audit_log_format(ab, " obj=%s", secctx);

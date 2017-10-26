@@ -125,7 +125,8 @@ static void ip_cmsg_recv_checksum(struct msghdr *msg, struct sk_buff *skb,
 	put_cmsg(msg, SOL_IP, IP_CHECKSUM, sizeof(__wsum), &csum);
 }
 
-static void ip_cmsg_recv_security(struct msghdr *msg, struct sk_buff *skb)
+static void ip_cmsg_recv_security(const struct sock *sk, struct msghdr *msg,
+				  struct sk_buff *skb)
 {
 	char *secdata;
 	u32 seclen, secid;
@@ -135,7 +136,8 @@ static void ip_cmsg_recv_security(struct msghdr *msg, struct sk_buff *skb)
 	if (err)
 		return;
 
-	err = security_secid_to_secctx(secid, &secdata, &seclen);
+	err = security_secid_to_secctx(security_socket_lsm(sk),
+					secid, &secdata, &seclen);
 	if (err)
 		return;
 
@@ -213,7 +215,7 @@ void ip_cmsg_recv_offset(struct msghdr *msg, struct sock *sk,
 	}
 
 	if (flags & IP_CMSG_PASSSEC) {
-		ip_cmsg_recv_security(msg, skb);
+		ip_cmsg_recv_security(sk, msg, skb);
 
 		flags &= ~IP_CMSG_PASSSEC;
 		if (!flags)

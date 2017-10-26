@@ -5928,10 +5928,12 @@ static int selinux_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
 	return security_context_to_sid(secdata, seclen, secid, GFP_KERNEL);
 }
 
+#ifndef CONFIG_SECURITY_STACKING
 static void selinux_release_secctx(char *secdata, u32 seclen)
 {
 	kfree(secdata);
 }
+#endif
 
 static void selinux_inode_invalidate_secctx(struct inode *inode)
 {
@@ -6230,7 +6232,9 @@ static struct security_hook_list selinux_hooks[] __lsm_ro_after_init = {
 	LSM_HOOK_INIT(ismaclabel, selinux_ismaclabel),
 	LSM_HOOK_INIT(secid_to_secctx, selinux_secid_to_secctx),
 	LSM_HOOK_INIT(secctx_to_secid, selinux_secctx_to_secid),
+#ifndef CONFIG_SECURITY_STACKING
 	LSM_HOOK_INIT(release_secctx, selinux_release_secctx),
+#endif
 	LSM_HOOK_INIT(inode_invalidate_secctx, selinux_inode_invalidate_secctx),
 	LSM_HOOK_INIT(inode_notifysecctx, selinux_inode_notifysecctx),
 	LSM_HOOK_INIT(inode_setsecctx, selinux_inode_setsecctx),

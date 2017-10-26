@@ -292,7 +292,8 @@ static u32 nfqnl_get_sk_secctx(struct sk_buff *skb, char **secdata)
 	read_lock_bh(&skb->sk->sk_callback_lock);
 
 	if (skb->secmark)
-		security_secid_to_secctx(skb->secmark, secdata, &seclen);
+		security_secid_to_secctx(security_socket_lsm(skb->sk),
+						skb->secmark, secdata, &seclen);
 
 	read_unlock_bh(&skb->sk->sk_callback_lock);
 #endif

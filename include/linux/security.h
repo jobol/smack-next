@@ -410,8 +410,10 @@ int security_setprocattr(const char *lsm, const char *name, void *value,
 			 size_t size);
 int security_netlink_send(struct sock *sk, struct sk_buff *skb);
 int security_ismaclabel(const char *name);
-int security_secid_to_secctx(u32 secid, char **secdata, u32 *seclen);
-int security_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid);
+int security_secid_to_secctx(const char *lsm, u32 secid, char **secdata,
+			     u32 *seclen);
+int security_secctx_to_secid(const char *lsm, const char *secdata, u32 seclen,
+			     u32 *secid);
 void security_release_secctx(char *secdata, u32 seclen);
 
 void security_inode_invalidate_secctx(struct inode *inode);
@@ -1185,14 +1187,14 @@ static inline int security_ismaclabel(const char *name)
 	return 0;
 }
 
-static inline int security_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
+static inline int security_secid_to_secctx(const char *lsm, u32 secid,
+					   char **secdata, u32 *seclen)
 {
 	return -EOPNOTSUPP;
 }
 
-static inline int security_secctx_to_secid(const char *secdata,
-					   u32 seclen,
-					   u32 *secid)
+static inline int security_secctx_to_secid(const char *lsm, const char *secdata,
+					   u32 seclen, u32 *secid)
 {
 	return -EOPNOTSUPP;
 }
@@ -1241,6 +1243,8 @@ int security_socket_shutdown(struct socket *sock, int how);
 int security_sock_rcv_skb(struct sock *sk, struct sk_buff *skb);
 int security_socket_getpeersec_stream(struct socket *sock, char __user *optval,
 				      int __user *optlen, unsigned len);
+int security_socket_passed_lsm(struct socket *sock, char __user *optval,
+				      unsigned int optlen);
 int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid);
 int security_sk_alloc(struct sock *sk, int family, gfp_t priority);
 void security_sk_free(struct sock *sk);
@@ -1263,6 +1267,7 @@ int security_tun_dev_create(void);
 int security_tun_dev_attach_queue(void *security);
 int security_tun_dev_attach(struct sock *sk, void *security);
 int security_tun_dev_open(void *security);
+char *security_socket_lsm(const struct sock *sk);
 
 #else	/* CONFIG_SECURITY_NETWORK */
 static inline int security_unix_stream_connect(struct sock *sock,
@@ -1362,10 +1367,19 @@ static inline int security_sock_rcv_skb(struct sock *sk,
 	return 0;
 }
 
-static inline int security_socket_getpeersec_stream(struct socket *sock, char __user *optval,
-						    int __user *optlen, unsigned len)
+static inline int security_socket_getpeersec_stream(struct socket *sock,
+						    char __user *optval,
+						    int __user *optlen,
+						    unsigned len)
 {
 	return -ENOPROTOOPT;
+}
+
+static inline int security_socket_passed_lsm(struct socket *sock,
+					     char __user *optval,
+					     unsigned int optlen)
+{
+	return -EOPNOTSUPP;
 }
 
 static inline int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
@@ -1454,6 +1468,11 @@ static inline int security_tun_dev_attach(struct sock *sk, void *security)
 static inline int security_tun_dev_open(void *security)
 {
 	return 0;
+}
+
+static inline char *security_socket_lsm(const struct sock *sk)
+{
+	return NULL;
 }
 #endif	/* CONFIG_SECURITY_NETWORK */
 

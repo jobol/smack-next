@@ -1421,7 +1421,10 @@ static int smack_inode_getsecurity(struct inode *inode,
 	if (strcmp(name, XATTR_SMACK_SUFFIX) == 0) {
 		isp = smk_of_inode(inode);
 		ilen = strlen(isp->smk_known);
-		*buffer = isp->smk_known;
+		if (alloc)
+			*buffer = kstrdup(isp->smk_known, GFP_KERNEL);
+		else
+			*buffer = isp->smk_known;
 		return ilen;
 	}
 
@@ -1447,7 +1450,10 @@ static int smack_inode_getsecurity(struct inode *inode,
 
 	ilen = strlen(isp->smk_known);
 	if (rc == 0) {
-		*buffer = isp->smk_known;
+		if (alloc)
+			*buffer = kstrdup(isp->smk_known, GFP_KERNEL);
+		else
+			*buffer = isp->smk_known;
 		rc = ilen;
 	}
 
@@ -4361,8 +4367,16 @@ static int smack_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
 {
 	struct smack_known *skp = smack_from_secid(secid);
 
+#ifdef CONFIG_SECURITY_STACKING
+	if (secdata) {
+		*secdata = kstrdup(skp->smk_known, GFP_KERNEL);
+		if (*secdata == NULL)
+			return -ENOMEM;
+	}
+#else
 	if (secdata)
 		*secdata = skp->smk_known;
+#endif
 	*seclen = strlen(skp->smk_known);
 	return 0;
 }
