@@ -37,6 +37,8 @@
 struct security_hook_heads security_hook_heads __lsm_ro_after_init;
 static ATOMIC_NOTIFIER_HEAD(lsm_notifier_chain);
 
+static struct kmem_cache *lsm_file_cache;
+
 char *lsm_names;
 static struct lsm_blob_sizes blob_sizes;
 
@@ -83,6 +85,13 @@ int __init security_init(void)
 	do_security_initcalls();
 
 	/*
+	 * Create any kmem_caches needed for blobs
+	 */
+	if (blob_sizes.lbs_file)
+		lsm_file_cache = kmem_cache_create("lsm_file_cache",
+						   blob_sizes.lbs_file, 0,
+						   SLAB_PANIC, NULL);
+	/*
 	 * The second call to a module specific init function
 	 * adds hooks to the hook lists and does any other early
 	 * initializations required.
@@ -91,6 +100,7 @@ int __init security_init(void)
 
 #ifdef CONFIG_SECURITY_LSM_DEBUG
 	pr_info("LSM: cred blob size       = %d\n", blob_sizes.lbs_cred);
+	pr_info("LSM: file blob size       = %d\n", blob_sizes.lbs_file);
 #endif
 
 	return 0;
@@ -267,6 +277,26 @@ static void __init lsm_set_size(int *need, int *lbs)
 void __init security_add_blobs(struct lsm_blob_sizes *needed)
 {
 	lsm_set_size(&needed->lbs_cred, &blob_sizes.lbs_cred);
+	lsm_set_size(&needed->lbs_file, &blob_sizes.lbs_file);
+}
+
+/**
+ * lsm_file_alloc - allocate a composite file blob
+ * @file: the file that needs a blob
+ *
+ * Allocate the file blob for all the modules
+ *
+ * Returns 0, or -ENOMEM if memory can't be allocated.
+ */
+int lsm_file_alloc(struct file *file)
+{
+	if (!lsm_file_cache)
+		return 0;
+
+	file->f_security = kmem_cache_zalloc(lsm_file_cache, GFP_KERNEL);
+	if (file->f_security == NULL)
+		return -ENOMEM;
+	return 0;
 }
 
 /*
@@ -952,12 +982,25 @@ int security_file_permission(struct file *file, int mask)
 
 int security_file_alloc(struct file *file)
 {
+	int rc = lsm_file_alloc(file);
+
+	if (rc)
+		return rc;
 	return call_int_hook(file_alloc_security, 0, file);
 }
 
 void security_file_free(struct file *file)
 {
+	void *blob;
+
+	if (!lsm_file_cache)
+		return;
+
 	call_void_hook(file_free_security, file);
+
+	blob = file->f_security;
+	file->f_security = NULL;
+	kmem_cache_free(lsm_file_cache, blob);
 }
 
 int security_file_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
