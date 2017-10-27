@@ -115,4 +115,6 @@
 
 #define SO_ZEROCOPY		60
 
+#define SO_LSMSEC		61
+
 #endif	/* _XTENSA_SOCKET_H */

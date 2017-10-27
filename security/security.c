@@ -176,7 +176,7 @@ static int lsm_append(char *new, char **result)
 
 /**
  * security_module_enable - Load given security module on boot ?
- * @module: the name of the module
+ * @lsm: the name of the module
  * @stacked: indicates that the module wants to be stacked
  *
  * Each LSM must pass this method before registering its own operations
